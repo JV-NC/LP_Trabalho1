@@ -14,7 +14,7 @@
 #TODO: implement 2 enemies structure type and 1 boss
 
 class Player:
- def __init__(self, x, y, sprite_base):
+ def __init__(self, x, y):
   #location
   self.x = x
   self.y = y
@@ -35,12 +35,16 @@ class Player:
   self.on_ground = False
   
   #anim
-  self.sprite_base = sprite_base
-  self.w = 8   # sprite width
-  self.h = 8   # sprite height
+  self.w = 16   # sprite width
+  self.h = 16   # sprite height
+  self.animations = {
+    'idle': {'start': 256, 'frames': 2, 'speed': 300},
+    'run':  {'start': 260, 'frames': 2, 'speed': 300},
+    'jump': {'start': 264, 'frames': 1, 'speed': 1},
+    'fall': {'start': 266, 'frames': 1, 'speed': 1},
+  }
+  self.state = 'idle'
   self.frame = 0 
-  self.frame_max = 4 #n of sprites
-  self.anim_speed = 8 #sprite change speed
   self.t = 0 #time counter
   self.flipper = 0
   self.flipper_speed = 4
@@ -66,17 +70,17 @@ class Player:
    self.dir = 0
    moving = True
   else:
-   if abs(self.vx)>self.friction:
+   if abs(self.vx)<self.friction:
     self.vx = 0
-   if self.vx>0:
+   elif self.vx>0:
     self.vx -=self.friction
    elif self.vx<0:
     self.vx +=self.friction
   
   #horizontal colision
-  left = self.x
-  right = self.x + self.w - 1
-  top = self.y
+  left = self.x + 1
+  right = self.x + self.w - 2
+  top = self.y + 1
   bottom = self.y + self.h - 1
   
   if self.vx < 0:  # movendo para esquerda
@@ -88,14 +92,6 @@ class Player:
    if solid_tile_at(right, top) or solid_tile_at(right, bottom):
     self.x = old_x
     self.vx = 0
-  
-  #horizontal move
-  if moving:
-   self.t +=1
-   if self.t % self.anim_speed == 0:
-    self.frame = (self.frame+1)%self.frame_max
-  else:
-   self.frame = 0
 
  def apply_gravity(self):
   old_y = self.y
@@ -108,15 +104,17 @@ class Player:
   self.y += self.vy
 
   # --- COLISÃO VERTICAL ---
-  left = self.x
-  right = self.x + self.w - 1
-  top = self.y
+  left = self.x +1
+  right = self.x + self.w - 2
+  top = self.y + 1
   bottom = self.y + self.h - 1
 
   # caindo
   if self.vy > 0:
-   if solid_tile_at(left, bottom) or solid_tile_at(right, bottom):
-    self.y = (int(bottom) // 8) * 8 - self.h
+   if (solid_tile_at(left, bottom) or solid_tile_at(right, bottom)):
+    tile_y = (int(bottom) // 8) * 8
+    self.y = tile_y - self.h
+
     self.vy = 0
     self.on_ground = True
    else:
@@ -146,9 +144,43 @@ class Player:
   self.apply_gravity()
   self.jump()
 
- def draw(self, cam_x, cam_y):
-  sprite_id = self.sprite_base+self.frame
+ def set_state(self):
+  old = self.state
+  if not self.on_ground:
+   if self.vy<0:
+    self.state = 'jump'
+   else:
+    self.state = 'fall'
+  else:
+   if(abs(self.vx)>1.0):
+    self.state = 'run'
+   else:
+    self.state = 'idle'
+  
+  if old!=self.state:
+   self.t=0
+   self.frame=0
 
+ def animate(self):
+  anim = self.animations[self.state]
+  if anim['frames']<=1:
+   self.frame=0
+   self.t = 0
+   return
+  
+  self.t += 1
+
+  speed = max(1,anim.get('speed',1))
+
+  if self.t>=speed:
+   trace(anim['frames'])
+   self.frame = (self.frame+1)%anim['frames']
+   self.t=0
+
+ def draw(self, cam_x, cam_y):
+  anim = self.animations[self.state]
+  sprite_id = anim['start']+self.frame*4
+  trace(self.state)
   if not self.on_ground:
    self.flipper_t += 1
    if self.flipper_t >= self.flipper_speed:
@@ -165,11 +197,15 @@ class Player:
    colorkey=0,
    scale=1,
    flip=self.dir,
-   rotate=self.flipper
+   rotate=self.flipper,
+   w=2,
+   h=2
   )
 
  def update(self, cam_x, cam_y):
   self.move()
+  self.set_state()
+  self.animate()
   self.draw(cam_x, cam_y)
 
 def solid_tile_at(px, py):
@@ -190,7 +226,7 @@ def get_camera(player):
 
  return cam_x, cam_y
 
-player = Player(100,60,256)
+player = Player(100,60)
 
 #tamanho do mundo em tiles
 TILE_SIZE = 8
