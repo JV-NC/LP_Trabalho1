@@ -1,12 +1,10 @@
 # title:   LP_Trabalho1
 # author:  Alexandre, Jean, Joao Vitor, Julia
 # desc:    trabalho de LP
-# site:    website link
-# license: MIT License (change this to your license of choice)
+# license: MIT License
 # version: 0.1
 # script:  python
 
-#TODO: refactor player sprite for 16x16 pixels
 #TODO: implement different sprite states (idle, moving, jumping, droping, attacking)
 #TODO: fix player teleporting up in walls
 #TODO: refactor camera placement for hide rooms
@@ -14,221 +12,236 @@
 #TODO: implement 2 enemies structure type and 1 boss
 
 class Player:
- def __init__(self, x, y):
-  #location
-  self.x = x
-  self.y = y
-  self.vx=0
-  self.friction = 0.1
-  self.max_vx=3
-  self.gspeed = 0.5
-  self.aspeed = 0.5
-  self.dir = 0 #0 right 1 left
-  
-  #physic
-  self.vy=0
-  self.gravity = 0.4
-  self.jump_force = -4
-  self.jump_boost = -0.4
-  self.max_jump_time = 12
-  self.jump_timer = 0
-  self.on_ground = False
-  
-  #anim
-  self.w = 16   # sprite width
-  self.h = 16   # sprite height
-  self.animations = {
-    'idle': {'start': 256, 'frames': 2, 'speed': 300},
-    'run':  {'start': 260, 'frames': 2, 'speed': 300},
-    'jump': {'start': 264, 'frames': 1, 'speed': 1},
-    'fall': {'start': 266, 'frames': 1, 'speed': 1},
-  }
-  self.state = 'idle'
-  self.frame = 0 
-  self.t = 0 #time counter
-  self.flipper = 0
-  self.flipper_speed = 4
-  self.flipper_t = 0
-  
- def move_horizontal(self):
-  """w,a,s,d (23,1,19,4)"""
-  #self.dir = 0 if self.vx>=0 else 1
-  old_x = self.x
-  self.x += self.vx
-  if self.vx>self.max_vx:
-   self.vx=self.max_vx
-  elif self.vx<-self.max_vx:
-   self.vx=-self.max_vx
-  moving = False
-  speed = self.gspeed if self.on_ground else self.aspeed
-  if btn(2) or key(1):
-   self.vx -= speed
-   self.dir = 1
-   moving = True
-  elif btn(3) or key(4):
-   self.vx += speed
-   self.dir = 0
-   moving = True
-  else:
-   if abs(self.vx)<self.friction:
-    self.vx = 0
-   elif self.vx>0:
-    self.vx -=self.friction
-   elif self.vx<0:
-    self.vx +=self.friction
-  
-  #horizontal colision
-  left = self.x + 1
-  right = self.x + self.w - 2
-  top = self.y + 1
-  bottom = self.y + self.h - 1
-  
-  if self.vx < 0:  # movendo para esquerda
-   if solid_tile_at(left, top) or solid_tile_at(left, bottom):
-    self.x = old_x
-    self.vx = 0
+    def __init__(self, x, y):
+        # location
+        self.x = x
+        self.y = y
+        self.vx = 0
+        self.vy = 0
+        
+        self.friction = 0.1
+        self.max_vx = 3
+        self.gspeed = 0.5
+        self.aspeed = 0.5
+        self.dir = 0   # 0 right / 1 left
 
-  if self.vx > 0:  # movendo para direita
-   if solid_tile_at(right, top) or solid_tile_at(right, bottom):
-    self.x = old_x
-    self.vx = 0
+        # physics
+        self.gravity = 0.4
+        self.jump_force = -4
+        self.jump_boost = -0.4
+        self.max_jump_time = 12
+        self.jump_timer = 0
+        self.on_ground = False
 
- def apply_gravity(self):
-  old_y = self.y
+        # animation
+        self.w = 16
+        self.h = 16
+        self.animations = {
+            'idle': {'start': 256, 'frames': 2, 'speed': 30},
+            'run':  {'start': 260, 'frames': 2, 'speed': 30},
+            'jump': {'start': 264, 'frames': 1, 'speed': 1},
+            'fall': {'start': 266, 'frames': 1, 'speed': 1},
+        }
+        self.state = 'idle'
+        self.frame = 0
+        self.t = 0
+        self.flipper = 0
+        self.flipper_speed = 4
+        self.flipper_t = 0
 
-  # aplica gravidade
-  self.vy += self.gravity
-  if self.vy > 3:
-   self.vy = 3
+    # HORIZONTAL MOVEMENT AND SIDE COLLISION
+    def move_horizontal(self):
+        old_x = self.x
+        self.x += self.vx
 
-  self.y += self.vy
+        # clamp speed
+        if self.vx > self.max_vx: self.vx = self.max_vx
+        if self.vx < -self.max_vx: self.vx = -self.max_vx
 
-  # --- COLISÃO VERTICAL ---
-  left = self.x +1
-  right = self.x + self.w - 2
-  top = self.y + 1
-  bottom = self.y + self.h - 1
+        # input
+        speed = self.gspeed if self.on_ground else self.aspeed
+        if btn(2) or key(1):   # left
+            self.vx -= speed
+            self.dir = 1
+        elif btn(3) or key(4): # right
+            self.vx += speed
+            self.dir = 0
+        else:
+            if abs(self.vx) < self.friction:
+                self.vx = 0
+            elif self.vx > 0:
+                self.vx -= self.friction
+            else:
+                self.vx += self.friction
 
-  # caindo
-  if self.vy > 0:
-   if (solid_tile_at(left, bottom) or solid_tile_at(right, bottom)):
-    tile_y = (int(bottom) // 8) * 8
-    self.y = tile_y - self.h
+        # side collision
+        ix = int(self.x)
+        iy = int(self.y)
+        left = ix + 2
+        right = ix + self.w - 3
+        top = iy + 2
+        bottom = iy + self.h - 2
 
-    self.vy = 0
-    self.on_ground = True
-   else:
-    self.on_ground = False
+        if self.vx < 0:  # left
+            if solid_tile_at(left, top) or solid_tile_at(left, bottom):
+                self.x = old_x
+                self.vx = 0
 
-  # subindo
-  elif self.vy < 0:
-   if solid_tile_at(left, top) or solid_tile_at(right, top):
-    self.y = (int(top) // 8 + 1) * 8
-    self.vy = 0
+        if self.vx > 0:  # right
+            if solid_tile_at(right, top) or solid_tile_at(right, bottom):
+                self.x = old_x
+                self.vx = 0
 
- def jump(self):
-  jump_pressed = btn(4) or key(23) or key(48)
-  jump_just_pressed = btnp(4) or key(23) or key(48)
-  
-  if jump_just_pressed and self.on_ground:
-   self.vy = self.jump_force
-   self.on_ground = False
-   self.jump_timer = 0
-  if jump_pressed and not self.on_ground and self.vy<0:
-   if self.jump_timer<self.max_jump_time:
-    self.vy += self.jump_boost
-    self.jump_timer += 1
+    # GRAVITY AND VERTICAL COLLISION
+    def apply_gravity(self):
+      self.vy += self.gravity
+      if self.vy > 3:
+          self.vy = 3
 
- def move(self):
-  self.move_horizontal()
-  self.apply_gravity()
-  self.jump()
+      self.y += self.vy
 
- def set_state(self):
-  old = self.state
-  if not self.on_ground:
-   if self.vy<0:
-    self.state = 'jump'
-   else:
-    self.state = 'fall'
-  else:
-   if(abs(self.vx)>1.0):
-    self.state = 'run'
-   else:
-    self.state = 'idle'
-  
-  if old!=self.state:
-   self.t=0
-   self.frame=0
+      ix = int(self.x)
+      iy = int(self.y)
 
- def animate(self):
-  anim = self.animations[self.state]
-  if anim['frames']<=1:
-   self.frame=0
-   self.t = 0
-   return
-  
-  self.t += 1
+      left = ix + 2
+      right = ix + self.w - 3
+      top = iy + 2
+      bottom = iy + self.h - 1
 
-  speed = max(1,anim.get('speed',1))
+      # FLOOR COLLISION
+      if self.vy >= 0:
+          foot_y = iy + self.h
+          foot_tile_y = foot_y // 8
 
-  if self.t>=speed:
-   trace(anim['frames'])
-   self.frame = (self.frame+1)%anim['frames']
-   self.t=0
+          left_tile_x = (ix + 2) // 8
+          right_tile_x = (ix + self.w - 3) // 8
 
- def draw(self, cam_x, cam_y):
-  anim = self.animations[self.state]
-  sprite_id = anim['start']+self.frame*4
-  trace(self.state)
-  if not self.on_ground:
-   self.flipper_t += 1
-   if self.flipper_t >= self.flipper_speed:
-    self.flipper = (self.flipper + 1) % 4
-    self.flipper_t = 0
-  else:
-   self.flipper = 0
-   self.flipper_t = 0
+          on_floor = (solid_tile_at(left_tile_x * 8, foot_tile_y * 8) or solid_tile_at(right_tile_x * 8, foot_tile_y * 8))
 
-  spr(
-   sprite_id,
-   int(self.x - cam_x),
-   int(self.y - cam_y),
-   colorkey=0,
-   scale=1,
-   flip=self.dir,
-   rotate=self.flipper,
-   w=2,
-   h=2
-  )
+          if on_floor:
+              tile_top = foot_tile_y * 8
+              self.y = tile_top - self.h
+              self.vy = 0
+              self.on_ground = True
+          else:
+              self.on_ground = False
 
- def update(self, cam_x, cam_y):
-  self.move()
-  self.set_state()
-  self.animate()
-  self.draw(cam_x, cam_y)
+      # CEILING COLLISION
+      if self.vy < 0:
+          hit_ceiling = (solid_tile_at(left, top) or solid_tile_at(right, top))
 
+          if hit_ceiling:
+              tile_bottom = ((top // 8) + 1) * 8
+              self.y = tile_bottom
+              self.vy = 0
+
+    # JUMP SYSTEM
+    def jump(self):
+        jump_pressed = btn(4) or key(23) or key(48)
+        jump_just_pressed = btnp(4) or key(23) or key(48)
+
+        if jump_just_pressed and self.on_ground:
+            self.vy = self.jump_force
+            self.on_ground = False
+            self.jump_timer = 0
+
+        if jump_pressed and not self.on_ground and self.vy < 0:
+            if self.jump_timer < self.max_jump_time:
+                self.vy += self.jump_boost
+                self.jump_timer += 1
+
+    # MOVE
+    def move(self):
+        self.move_horizontal()
+        self.apply_gravity()
+        self.jump()
+
+    # STATE MACHINE
+    def set_state(self):
+        old = self.state
+
+        if not self.on_ground:
+            if self.vy < 0:
+                self.state = 'jump'
+            elif self.vy > 0.1:
+                self.state = 'fall'
+        else:
+            if abs(self.vx) > 1.0:
+                self.state = 'run'
+            else:
+                self.state = 'idle'
+
+        if old != self.state:
+            self.frame = 0
+            self.t = 0
+
+    # ANIMATION CONTROL
+    def animate(self):
+        anim = self.animations[self.state]
+
+        if anim['frames'] <= 1:
+            self.frame = 0
+            self.t = 0
+            return
+
+        self.t += 1
+        speed = max(1, anim['speed'])
+        trace(f'Timer: {self.t}; Frame: {self.frame}; State: {self.state}')
+        if self.t >= speed:
+            self.frame = (self.frame + 1) % anim['frames']
+            self.t = 0
+
+    # DRAW PLAYER
+    def draw(self, cam_x, cam_y):
+        anim = self.animations[self.state]
+        sprite_id = anim['start'] + self.frame * 4
+        if not self.on_ground:
+          self.flipper_t += 1
+          if self.flipper_t >= self.flipper_speed:
+            self.flipper = (self.flipper + 1) % 4
+            self.flipper_t = 0
+        else:
+          self.flipper = 0
+          self.flipper_t = 0
+        spr(
+            sprite_id,
+            int(self.x - cam_x),
+            int(self.y - cam_y),
+            colorkey=0,
+            scale=1,
+            flip=self.dir,
+            rotate=self.flipper,
+            w=2,
+            h=2
+        )
+
+    # Gather all update methods
+    def update(self, cam_x, cam_y):
+        self.move()
+        self.set_state()
+        self.animate()
+        self.draw(cam_x, cam_y)
+
+# TILE SOLID CHECK
 def solid_tile_at(px, py):
- px=int(px)
- py=int(py)
- tile_x = px // 8
- tile_y = py // 8
- tile_id = mget(tile_x, tile_y)
- return tile_id < 64
- 
+    tile_x = int(px) // 8
+    tile_y = int(py) // 8
+    tile_id = mget(tile_x, tile_y)
+    return tile_id < 64
+
+# CAMERA
 def get_camera(player):
- cam_x = int(player.x - 240//2)
- cam_y = int(player.y - 136//2)
+    cam_x = int(player.x - 240//2)
+    cam_y = int(player.y - 136//2)
 
- # limitacoes da camera
- cam_x = max(0, min(cam_x, MAP_W - 240))
- cam_y = max(0, min(cam_y, MAP_H - 136))
+    cam_x = max(0, min(cam_x, MAP_W - 240))
+    cam_y = max(0, min(cam_y, MAP_H - 136))
 
- return cam_x, cam_y
+    return cam_x, cam_y
 
-player = Player(100,60)
+#Globals
+player = Player(100, 60)
 
-#tamanho do mundo em tiles
 TILE_SIZE = 8
 MAP_W_TILES = 120
 MAP_H_TILES = 30
@@ -236,18 +249,19 @@ MAP_W = MAP_W_TILES * TILE_SIZE
 MAP_H = MAP_H_TILES * TILE_SIZE
 
 def TIC():
- global player
- 
- cls()
- 
- cam_x, cam_y = get_camera(player)
- 
- map(
-  cam_x//TILE_SIZE,
-  cam_y//TILE_SIZE,
-  30,
-  20,
-  -(cam_x % TILE_SIZE),
-  -(cam_y % TILE_SIZE)
- )
- player.update(cam_x,cam_y)
+    global player
+
+    cls()
+
+    cam_x, cam_y = get_camera(player)
+
+    map(
+        cam_x // TILE_SIZE,
+        cam_y // TILE_SIZE,
+        30,
+        20,
+        -(cam_x % TILE_SIZE),
+        -(cam_y % TILE_SIZE)
+    )
+
+    player.update(cam_x, cam_y)
