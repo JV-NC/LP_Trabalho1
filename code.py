@@ -7,7 +7,6 @@
 
 #TODO: implement attacking and interacting sprites states
 #TODO: fix player teleporting up in walls
-#TODO: refactor camera placement for hide rooms
 #TODO: implement player physical attack and projectile upgrade
 #TODO: implement 2 enemies structure type and 1 boss
 
@@ -77,8 +76,10 @@ class Player:
         # side collision
         ix = int(self.x)
         iy = int(self.y)
-        left = ix + 2
-        right = ix + self.w - 3
+        HIT_L = 3
+        HIT_R = 3
+        left = ix + HIT_L
+        right = ix + self.w - HIT_R
         top = iy + 2
         bottom = iy + self.h - 2
 
@@ -94,46 +95,51 @@ class Player:
 
     # GRAVITY AND VERTICAL COLLISION
     def apply_gravity(self):
-      self.vy += self.gravity
-      if self.vy > 3:
-          self.vy = 3
+        self.vy += self.gravity
+        if self.vy > 3:
+            self.vy = 3
 
-      self.y += self.vy
+        self.y += self.vy
 
-      ix = int(self.x)
-      iy = int(self.y)
+        ix = int(self.x)
+        iy = int(self.y)
 
-      left = ix + 2
-      right = ix + self.w - 3
-      top = iy + 2
-      bottom = iy + self.h - 1
+        HIT_L = 3
+        HIT_R = 3
+        HIT_T = 2
+        HIT_B = 2
 
-      # FLOOR COLLISION
-      if self.vy >= 0:
-          foot_y = iy + self.h
-          foot_tile_y = foot_y // 8
+        left = ix + HIT_L
+        right = ix + self.w - HIT_R
+        top = iy + HIT_T
+        bottom = iy + self.h - HIT_B
 
-          left_tile_x = (ix + 2) // 8
-          right_tile_x = (ix + self.w - 3) // 8
+        # FLOOR COLLISION
+        if self.vy >= 0:
+            foot_y = iy + self.h
+            foot_tile_y = foot_y // 8
 
-          on_floor = (solid_tile_at(left_tile_x * 8, foot_tile_y * 8) or solid_tile_at(right_tile_x * 8, foot_tile_y * 8))
+            left_tile_x = (ix + 2) // 8
+            right_tile_x = (ix + self.w - 3) // 8
 
-          if on_floor:
-              tile_top = foot_tile_y * 8
-              self.y = tile_top - self.h
-              self.vy = 0
-              self.on_ground = True
-          else:
-              self.on_ground = False
+            on_floor = (solid_tile_at(left_tile_x * 8, foot_tile_y * 8) or solid_tile_at(right_tile_x * 8, foot_tile_y * 8))
 
-      # CEILING COLLISION
-      if self.vy < 0:
-          hit_ceiling = (solid_tile_at(left, top) or solid_tile_at(right, top))
+            if on_floor:
+                tile_top = foot_tile_y * 8
+                self.y = tile_top - self.h
+                self.vy = 0
+                self.on_ground = True
+            else:
+                self.on_ground = False
 
-          if hit_ceiling:
-              tile_bottom = ((top // 8) + 1) * 8
-              self.y = tile_bottom
-              self.vy = 0
+        # CEILING COLLISION
+        if self.vy < 0:
+            hit_ceiling = (solid_tile_at(left, top) or solid_tile_at(right, top))
+
+            if hit_ceiling:
+                tile_bottom = ((top // 8) + 1) * 8
+                self.y = tile_bottom
+                self.vy = 0
 
     # JUMP SYSTEM
     def jump(self):
