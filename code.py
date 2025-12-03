@@ -5,7 +5,7 @@
 # version: 0.1
 # script:  python
 
-#TODO: implement different sprite states (idle, moving, jumping, droping, attacking)
+#TODO: implement attacking and interacting sprites states
 #TODO: fix player teleporting up in walls
 #TODO: refactor camera placement for hide rooms
 #TODO: implement player physical attack and projectile upgrade
@@ -38,7 +38,7 @@ class Player:
         self.h = 16
         self.animations = {
             'idle': {'start': 256, 'frames': 2, 'speed': 30},
-            'run':  {'start': 260, 'frames': 2, 'speed': 30},
+            'run':  {'start': 260, 'frames': 2, 'speed': 12},
             'jump': {'start': 264, 'frames': 1, 'speed': 1},
             'fall': {'start': 266, 'frames': 1, 'speed': 1},
         }
@@ -194,7 +194,7 @@ class Player:
     # DRAW PLAYER
     def draw(self, cam_x, cam_y):
         anim = self.animations[self.state]
-        sprite_id = anim['start'] + self.frame * 4
+        sprite_id = anim['start'] + self.frame * 2
         if not self.on_ground:
           self.flipper_t += 1
           if self.flipper_t >= self.flipper_speed:
@@ -210,7 +210,7 @@ class Player:
             colorkey=0,
             scale=1,
             flip=self.dir,
-            rotate=self.flipper,
+            rotate=0,
             w=2,
             h=2
         )
