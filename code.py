@@ -231,13 +231,13 @@ def solid_tile_at(px, py):
 
 # CAMERA
 def get_camera(player):
-    cam_x = int(player.x - 240//2)
-    cam_y = int(player.y - 136//2)
+    cam_x = round(player.x - 240//2)
+    cam_y = round(player.y - 136//2)
 
     cam_x = max(0, min(cam_x, MAP_W - 240))
     cam_y = max(0, min(cam_y, MAP_H - 136))
 
-    return cam_x, cam_y
+    return int(cam_x), int(cam_y)
 
 #Globals
 player = Player(100, 60)
