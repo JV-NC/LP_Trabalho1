@@ -186,7 +186,7 @@ class Player:
 
         self.t += 1
         speed = max(1, anim['speed'])
-        trace(f'Timer: {self.t}; Frame: {self.frame}; State: {self.state}')
+        #trace(f'Timer: {self.t}; Frame: {self.frame}; State: {self.state}')
         if self.t >= speed:
             self.frame = (self.frame + 1) % anim['frames']
             self.t = 0
@@ -231,8 +231,9 @@ def solid_tile_at(px, py):
 
 # CAMERA
 def get_camera(player):
+    CAMERA_Y_OFFSET = -36
     cam_x = round(player.x - 240//2)
-    cam_y = round(player.y - 136//2)
+    cam_y = round(player.y - 136//2 + CAMERA_Y_OFFSET)
 
     cam_x = max(0, min(cam_x, MAP_W - 240))
     cam_y = max(0, min(cam_y, MAP_H - 136))
@@ -244,7 +245,7 @@ player = Player(100, 60)
 
 TILE_SIZE = 8
 MAP_W_TILES = 120
-MAP_H_TILES = 30
+MAP_H_TILES = 120
 MAP_W = MAP_W_TILES * TILE_SIZE
 MAP_H = MAP_H_TILES * TILE_SIZE
 W = 240
