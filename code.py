@@ -247,6 +247,9 @@ MAP_W_TILES = 120
 MAP_H_TILES = 30
 MAP_W = MAP_W_TILES * TILE_SIZE
 MAP_H = MAP_H_TILES * TILE_SIZE
+W = 240
+H = 136
+T = 8
 
 def TIC():
     global player
@@ -256,12 +259,12 @@ def TIC():
     cam_x, cam_y = get_camera(player)
 
     map(
-        cam_x // TILE_SIZE,
-        cam_y // TILE_SIZE,
-        30,
-        20,
-        -(cam_x % TILE_SIZE),
-        -(cam_y % TILE_SIZE)
+        cam_x // T,
+        cam_y // T,
+        (W // T) + 1,
+        (H // T) + 1,
+        -(cam_x % T),
+        -(cam_y % T)
     )
 
     player.update(cam_x, cam_y)
