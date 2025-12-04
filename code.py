@@ -6,7 +6,6 @@
 # script:  python
 
 #TODO: implement attacking and interacting sprites states
-#TODO: fix player teleporting up in walls
 #TODO: implement player physical attack and projectile upgrade
 #TODO: implement 2 enemies structure type and 1 boss
 
@@ -70,18 +69,14 @@ class Player:
                 self.vx = 0
             elif self.vx > 0:
                 self.vx -= self.friction
-            else:
+            elif self.vx < 0:
                 self.vx += self.friction
 
         # side collision
-        ix = int(self.x)
-        iy = int(self.y)
-        HIT_L = 3
-        HIT_R = 3
-        left = ix + HIT_L
-        right = ix + self.w - HIT_R
-        top = iy + 2
-        bottom = iy + self.h - 2
+        left = int(self.x)
+        right = int(self.x + self.w -1)
+        top = int(self.y)
+        bottom = int(self.y + self.h -1)
 
         if self.vx < 0:  # left
             if solid_tile_at(left, top) or solid_tile_at(left, bottom):
