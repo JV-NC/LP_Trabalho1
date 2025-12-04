@@ -8,7 +8,8 @@
 #TODO: implement attacking sprites states
 #TODO: implement player physical attack and projectile upgrade
 #TODO: implement 2 enemies structure type and 1 boss
-#TODO: fix start button
+#TODO: draw better menu and gameover screen
+#TODO: refactor patrol enemy for patrol coordinates
 #TODO: fix interactables for working as chest and doors with keys
 #TODO: implement drop and collect keys
 
@@ -429,8 +430,8 @@ def get_camera(player):
 player = Player(100, 60)
 
 enemies = [
-     Patrulha(200, 100, 468),
-     Patrulha(300, 100, 468),
+     Patrulha(200, 100, 348),
+     Patrulha(300, 100, 348),
 ]
 
 def porta_trigger(player):
@@ -450,7 +451,7 @@ music_started = False
 def draw_menu():
     cls()
     title = "TIC GAME"
-    start = "PRESSIONE D PARA JOGAR"
+    start = "PRESSIONE 'PULO' PARA JOGAR"
 
     # centraliza automaticamente
     print(title, 240//2 - (len(title)*4)//2, 40, 15, False, 2)
@@ -459,7 +460,7 @@ def draw_menu():
 def draw_game_over():
     cls()
     msg = "VOCE MORREU!"
-    retry = "PRESSIONE X PARA RECOMEÇAR"
+    retry = "PRESSIONE 'E' PARA RECOMEÇAR"
 
     print(msg, 240//2 - (len(msg)*4)//2, 40, 14, False, 2)
     print(retry, 240//2 - (len(retry)*4)//2, 80, 12, False, 1)
@@ -483,8 +484,8 @@ def TIC():
 
     if GAME_STATE == "menu":
         draw_menu()
-        # D = começar jogo
-        if btn(3) or key(4):  # botão X do TIC-80
+        # SPACE = começar jogo
+        if btn(4) or key(48):  # botão 'A' do TIC-80
             player = Player(100, 60)
             GAME_STATE = "game"
         return
@@ -527,7 +528,7 @@ def TIC():
             death_timer -= 1
             return
 
-        # X = volta ao menu
-        if btnp(4):
+        # E = volta ao menu
+        if btnp(7) or key(5):
             GAME_STATE = "menu"
         return
