@@ -5,9 +5,12 @@
 # version: 0.1
 # script:  python
 
-#TODO: implement attacking and interacting sprites states
+#TODO: implement attacking sprites states
 #TODO: implement player physical attack and projectile upgrade
 #TODO: implement 2 enemies structure type and 1 boss
+#TODO: fix start button
+#TODO: fix interactables for working as chest and doors with keys
+#TODO: implement drop and collect keys
 
 class Player:
     def __init__(self, x, y):
@@ -40,6 +43,8 @@ class Player:
             'jump': {'start': 264, 'frames': 1, 'speed': 1},
             'fall': {'start': 266, 'frames': 1, 'speed': 1},
             'sleep': {'start': 288, 'frames': 2, 'speed': 30},
+            'interact': {'start': 268, 'frames': 1, 'speed': 1},
+            'attack': {'start': 270, 'frames': 1, 'speed': 1}
         }
         self.state = 'idle'
         self.frame = 0
@@ -49,6 +54,11 @@ class Player:
         self.flipper_t = 0
         self.sleep_timer = 0
         self.sleep_time = 180
+
+        #interact
+        self.interact_timer = 0
+        self.interact_duration = 10
+        self.can_move = True
 
     # HORIZONTAL MOVEMENT AND SIDE COLLISION
     def move_horizontal(self):
@@ -156,13 +166,48 @@ class Player:
 
     # MOVE
     def move(self):
+        if self.interact_timer>0:
+            self.interact_timer-=1
+            if self.interact_timer ==0:
+                self.can_move = True
+            return
+        
+        if not self.can_move:
+            return
+        
         self.move_horizontal()
         self.apply_gravity()
         self.jump()
 
+    # INTERACT
+    def try_interact(self,interactibles):
+        if self.interact_timer>0 or not self.on_ground:
+            return
+
+        if not (btnp(7) or key(5)): #'E' or button 'Y'
+            return
+        
+        self.interact_timer = self.interact_duration
+        self.can_move = False
+        self.state = 'interact'
+        self.frame = 0
+        self.t = 0
+
+        # procurar interagível em colisão
+        for obj in interactibles:
+            if obj.check_collision(self):
+                # checa requisito (se tiver)
+                if obj.req is None or obj.req(self):
+                    obj.trigger(self)
+                return
+
     # STATE MACHINE
     def set_state(self):
         old = self.state
+
+        if self.interact_timer>0:
+            self.state = 'interact'
+            return
 
         if not self.on_ground:
             if self.vy < 0:
@@ -232,6 +277,19 @@ class Player:
         self.set_state()
         self.animate()
         self.draw(cam_x, cam_y)
+
+# INTERACTABLE
+class Interactable:
+    def __init__(self, x, y, w, h, trigger, req=None):
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+        self.trigger = trigger   # função a ser chamada
+        self.req = req           # requisito opcional (ex: chave)
+    
+    def check_collision(self, player):
+        return (self.x < player.x + player.w and self.x + self.w > player.x and self.y < player.y + player.h and self.y + self.h > player.y)
 
 # ---------- INIMIGOS ----------
 
@@ -375,6 +433,13 @@ enemies = [
      Patrulha(300, 100, 468),
 ]
 
+def porta_trigger(player):
+    trace("Porta abriu!")
+
+interactables = [
+    Interactable(150, 80, 16, 16, porta_trigger),
+]
+
 GAME_STATE = "menu"
 death_timer = 0
 
@@ -409,7 +474,7 @@ H = 136
 T = 8
 
 def TIC():
-    global player, GAME_STATE, death_timer, music_started
+    global player, GAME_STATE, death_timer, music_started, interactables
 
     #music
     if not music_started:
@@ -439,6 +504,7 @@ def TIC():
         )
         #update player
         player.update(cam_x, cam_y)
+        player.try_interact(interactables)
 
         #update enemy
         for enemy in enemies:
