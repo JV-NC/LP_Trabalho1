@@ -5,7 +5,6 @@
 # version: 0.1
 # script:  python
 
-#TODO: implement attacking sprites states
 #TODO: implement player physical attack and projectile upgrade
 #TODO: implement 2 enemies structure type and 1 boss
 #TODO: draw better menu and gameover screen
@@ -58,8 +57,19 @@ class Player:
 
         #interact
         self.interact_timer = 0
-        self.interact_duration = 10
+        self.interact_duration = 12
         self.can_move = True
+
+        #attack
+        self.attack_timer = 0
+        self.attack_duration = 12
+        self.attack_sprite = 298
+        self.attack_w = 16
+        self.attack_h = 16
+        self.attacking_in_air = False
+        self.attacking_on_ground = False
+        self.attack_cooldown = 0
+        self.attack_cooldown_max = self.attack_duration + 20
 
     # HORIZONTAL MOVEMENT AND SIDE COLLISION
     def move_horizontal(self):
@@ -167,11 +177,29 @@ class Player:
 
     # MOVE
     def move(self):
-        if self.interact_timer>0:
+        if self.attack_cooldown>0:
+            self.attack_cooldown-=1
+        
+        if self.interact_timer>0 and self.attack_timer==0:
             self.interact_timer-=1
             if self.interact_timer ==0:
                 self.can_move = True
             return
+        
+        if self.attack_timer>0:
+            self.attack_timer-=1
+            if self.attacking_in_air:
+                self.vx = 0
+                self.vy = 0
+                return
+            
+            if self.attacking_on_ground:
+                self.vx = 0
+                self.apply_gravity()
+                return
+        else:
+            self.attacking_in_air = False
+            self.attacking_on_ground = False
         
         if not self.can_move:
             return
@@ -185,7 +213,7 @@ class Player:
         if self.interact_timer>0 or not self.on_ground:
             return
 
-        if not (btnp(7) or key(5)): #'E' or button 'Y'
+        if not key(5): #'E' or button 'Y'
             return
         
         self.interact_timer = self.interact_duration
@@ -202,12 +230,38 @@ class Player:
                     obj.trigger(self)
                 return
 
+    def try_attack(self):
+        if self.attack_timer>0 or self.attack_cooldown>0:
+            return
+        
+        if not key(6): #'F' attacks
+            return
+        
+        self.attack_timer = self.attack_duration
+        self.state = 'attack'
+        self.frame = 0
+        self.t = 0
+        self.attack_cooldown = self.attack_cooldown_max
+
+        if not self.on_ground:
+            self.attacking_in_air = True
+            self.attacking_on_ground = False
+        else:
+            self.attacking_in_air = False
+            self.attacking_on_ground = True
+
     # STATE MACHINE
     def set_state(self):
         old = self.state
 
         if self.interact_timer>0:
             self.state = 'interact'
+            self.sleep_timer=0
+            return
+        
+        if self.attack_timer>0:
+            self.state = 'attack'
+            self.sleep_timer=0
             return
 
         if not self.on_ground:
@@ -272,9 +326,31 @@ class Player:
             h=2
         )
 
+        #draw attack
+        if self.attack_timer>0:
+            if self.dir==0:
+                atk_x = self.x+self.w
+            else:
+                atk_x = self.x-self.attack_w
+
+            atk_y = self.y+2
+
+            spr(
+                self.attack_sprite,
+                int(atk_x - cam_x),
+                int(atk_y - cam_y),
+                colorkey=0,
+                scale=1,
+                flip=self.dir,
+                rotate=0,
+                w=2,
+                h=2
+            )
+
     # Gather all update methods
     def update(self, cam_x, cam_y):
         self.move()
+        self.try_attack()
         self.set_state()
         self.animate()
         self.draw(cam_x, cam_y)
