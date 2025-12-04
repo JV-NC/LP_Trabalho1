@@ -223,6 +223,122 @@ class Player:
         self.animate()
         self.draw(cam_x, cam_y)
 
+# ---------- INIMIGOS ----------
+
+class Patrulha:
+    def __init__(self, x, y, sprite_base):
+        self.x = x
+        self.y = y
+        self.vx = 1
+        self.w = 8
+        self.h = 8
+        self.sprite_base = sprite_base
+        self.frame = 0
+        self.frame_max = 2
+        self.anim_speed = 15
+        self.t = 0
+
+        # física vertical
+        self.vy = 0
+        self.gravity = 0.4
+        self.on_ground = False
+
+        # patrulha limitada
+        self.patrol_range = 105  # distância máxima do player
+        self.direction = 1      # direção inicial
+
+    def move(self, player):
+        old_x = self.x
+
+        # calcula distância pro player
+        distance_to_player = player.x - self.x
+
+        # inverte direção se estiver longe do player
+        if abs(distance_to_player) > self.patrol_range:
+            self.direction *= -1
+
+        self.vx = self.direction
+
+        # checa se tem chão à frente
+        front_x = self.x + (self.vx > 0) * self.w
+        front_y = self.y + self.h
+        if not solid_tile_at(front_x, front_y + 1):
+            self.vx *= -1
+            self.direction *= -1
+
+        self.x += self.vx
+
+        # colisão horizontal com paredes
+        left = int(self.x)
+        right = int(self.x + self.w - 1)
+        top = int(self.y)
+        bottom = int(self.y + self.h - 1)
+
+        if self.vx > 0:
+            if solid_tile_at(right, top) or solid_tile_at(right, bottom):
+                self.x = old_x
+                self.vx *= -1
+                self.direction *= -1
+        elif self.vx < 0:
+            if solid_tile_at(left, top) or solid_tile_at(left, bottom):
+                self.x = old_x
+                self.vx *= -1
+                self.direction *= -1
+
+        # animação
+        self.t += 1
+        if self.t % self.anim_speed == 0:
+            self.frame = (self.frame + 1) % self.frame_max
+
+    def apply_gravity(self):
+        self.vy += self.gravity
+        if self.vy > 3:
+            self.vy = 3
+
+        self.y += self.vy
+
+        left = int(self.x)
+        right = int(self.x + self.w - 1)
+        top = int(self.y)
+        bottom = int(self.y + self.h - 1)
+
+        # caindo
+        if self.vy > 0:
+            if solid_tile_at(left, bottom) or solid_tile_at(right, bottom):
+                tile_y = bottom // 8
+                self.y = tile_y * 8 - self.h
+                self.vy = 0
+                self.on_ground = True
+            else:
+                self.on_ground = False
+        # subindo
+        elif self.vy < 0:
+            if solid_tile_at(left, top) or solid_tile_at(right, top):
+                tile_y = top // 8 + 1
+                self.y = tile_y * 8
+                self.vy = 0
+
+    def draw(self, cam_x, cam_y):
+        spr(
+            self.sprite_base + self.frame,
+            int(self.x - cam_x),
+            int(self.y - cam_y),
+            colorkey=0,
+            scale=1
+        )
+
+    def update(self, cam_x, cam_y, player):
+        self.move(player)       # movimento horizontal limitado perto do player
+        self.apply_gravity()    # física vertical
+        self.draw(cam_x, cam_y)
+
+    def check_collision_player(self, player):
+        if self.x < player.x + player.w and self.x + self.w > player.x and self.y < player.y + player.h and self.y + self.h > player.y:
+            return True
+        return False
+
+# ---------- MAPA ----------
+
 # TILE SOLID CHECK
 def solid_tile_at(px, py):
     tile_x = int(px) // 8
@@ -244,6 +360,35 @@ def get_camera(player):
 #Globals
 player = Player(100, 60)
 
+enemies = [
+     Patrulha(200, 100, 468),
+     Patrulha(300, 100, 468),
+]
+
+GAME_STATE = "menu"
+death_timer = 0
+
+music_started = False
+
+# ---------- GAME SCREENS ----------
+
+def draw_menu():
+    cls()
+    title = "TIC GAME"
+    start = "PRESSIONE D PARA JOGAR"
+
+    # centraliza automaticamente
+    print(title, 240//2 - (len(title)*4)//2, 40, 15, False, 2)
+    print(start, 240//2 - (len(start)*4)//2, 80, 12, False, 1)
+
+def draw_game_over():
+    cls()
+    msg = "VOCE MORREU!"
+    retry = "PRESSIONE X PARA RECOMEÇAR"
+
+    print(msg, 240//2 - (len(msg)*4)//2, 40, 14, False, 2)
+    print(retry, 240//2 - (len(retry)*4)//2, 80, 12, False, 1)
+
 TILE_SIZE = 8
 MAP_W_TILES = 120
 MAP_H_TILES = 120
@@ -254,19 +399,59 @@ H = 136
 T = 8
 
 def TIC():
-    global player
+    global player, GAME_STATE, death_timer, music_started
 
-    cls()
+    #music
+    if not music_started:
+        music(0, loop=True)
+        music_started = True
 
-    cam_x, cam_y = get_camera(player)
+    if GAME_STATE == "menu":
+        draw_menu()
+        # D = começar jogo
+        if btn(3) or key(4):  # botão X do TIC-80
+            player = Player(100, 60)
+            GAME_STATE = "game"
+        return
 
-    map(
-        cam_x // T,
-        cam_y // T,
-        (W // T) + 1,
-        (H // T) + 1,
-        -(cam_x % T),
-        -(cam_y % T)
-    )
+    if GAME_STATE == "game":
+        cls()
 
-    player.update(cam_x, cam_y)
+        cam_x, cam_y = get_camera(player)
+
+        map(
+            cam_x // T,
+            cam_y // T,
+            (W // T) + 1,
+            (H // T) + 1,
+            -(cam_x % T),
+            -(cam_y % T)
+        )
+        #update player
+        player.update(cam_x, cam_y)
+
+        #update enemy
+        for enemy in enemies:
+            enemy.update(cam_x, cam_y, player)
+            if enemy.check_collision_player(player):
+                GAME_STATE = "dead"
+                death_timer = 20
+
+        #fall from map
+        if player.y > MAP_H:
+            GAME_STATE = "dead"
+            death_timer = 20
+
+        return
+    
+    if GAME_STATE == "dead":
+        draw_game_over()
+
+        if death_timer > 0:
+            death_timer -= 1
+            return
+
+        # X = volta ao menu
+        if btnp(4):
+            GAME_STATE = "menu"
+        return
