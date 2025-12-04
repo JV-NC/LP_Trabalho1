@@ -8,7 +8,7 @@
 #TODO: implement attacking and interacting sprites states
 #TODO: implement player physical attack and projectile upgrade
 #TODO: implement 2 enemies structure type and 1 boss
-#TODO: trocar o botão de start
+#TODO: fiz start button
 
 class Player:
     def __init__(self, x, y):
