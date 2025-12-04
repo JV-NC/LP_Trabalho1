@@ -5,9 +5,7 @@
 # version: 0.1
 # script:  python
 
-#TODO: implement different sprite states (idle, moving, jumping, droping, attacking)
-#TODO: fix player teleporting up in walls
-#TODO: refactor camera placement for hide rooms
+#TODO: implement attacking and interacting sprites states
 #TODO: implement player physical attack and projectile upgrade
 #TODO: implement 2 enemies structure type and 1 boss
 
@@ -38,7 +36,7 @@ class Player:
         self.h = 16
         self.animations = {
             'idle': {'start': 256, 'frames': 2, 'speed': 30},
-            'run':  {'start': 260, 'frames': 2, 'speed': 30},
+            'run':  {'start': 260, 'frames': 2, 'speed': 12},
             'jump': {'start': 264, 'frames': 1, 'speed': 1},
             'fall': {'start': 266, 'frames': 1, 'speed': 1},
         }
@@ -71,16 +69,14 @@ class Player:
                 self.vx = 0
             elif self.vx > 0:
                 self.vx -= self.friction
-            else:
+            elif self.vx < 0:
                 self.vx += self.friction
 
         # side collision
-        ix = int(self.x)
-        iy = int(self.y)
-        left = ix + 2
-        right = ix + self.w - 3
-        top = iy + 2
-        bottom = iy + self.h - 2
+        left = int(self.x)
+        right = int(self.x + self.w -1)
+        top = int(self.y)
+        bottom = int(self.y + self.h -1)
 
         if self.vx < 0:  # left
             if solid_tile_at(left, top) or solid_tile_at(left, bottom):
@@ -94,46 +90,51 @@ class Player:
 
     # GRAVITY AND VERTICAL COLLISION
     def apply_gravity(self):
-      self.vy += self.gravity
-      if self.vy > 3:
-          self.vy = 3
+        self.vy += self.gravity
+        if self.vy > 3:
+            self.vy = 3
 
-      self.y += self.vy
+        self.y += self.vy
 
-      ix = int(self.x)
-      iy = int(self.y)
+        ix = int(self.x)
+        iy = int(self.y)
 
-      left = ix + 2
-      right = ix + self.w - 3
-      top = iy + 2
-      bottom = iy + self.h - 1
+        HIT_L = 3
+        HIT_R = 3
+        HIT_T = 2
+        HIT_B = 2
 
-      # FLOOR COLLISION
-      if self.vy >= 0:
-          foot_y = iy + self.h
-          foot_tile_y = foot_y // 8
+        left = ix + HIT_L
+        right = ix + self.w - HIT_R
+        top = iy + HIT_T
+        bottom = iy + self.h - HIT_B
 
-          left_tile_x = (ix + 2) // 8
-          right_tile_x = (ix + self.w - 3) // 8
+        # FLOOR COLLISION
+        if self.vy >= 0:
+            foot_y = iy + self.h
+            foot_tile_y = foot_y // 8
 
-          on_floor = (solid_tile_at(left_tile_x * 8, foot_tile_y * 8) or solid_tile_at(right_tile_x * 8, foot_tile_y * 8))
+            left_tile_x = (ix + 2) // 8
+            right_tile_x = (ix + self.w - 3) // 8
 
-          if on_floor:
-              tile_top = foot_tile_y * 8
-              self.y = tile_top - self.h
-              self.vy = 0
-              self.on_ground = True
-          else:
-              self.on_ground = False
+            on_floor = (solid_tile_at(left_tile_x * 8, foot_tile_y * 8) or solid_tile_at(right_tile_x * 8, foot_tile_y * 8))
 
-      # CEILING COLLISION
-      if self.vy < 0:
-          hit_ceiling = (solid_tile_at(left, top) or solid_tile_at(right, top))
+            if on_floor:
+                tile_top = foot_tile_y * 8
+                self.y = tile_top - self.h
+                self.vy = 0
+                self.on_ground = True
+            else:
+                self.on_ground = False
 
-          if hit_ceiling:
-              tile_bottom = ((top // 8) + 1) * 8
-              self.y = tile_bottom
-              self.vy = 0
+        # CEILING COLLISION
+        if self.vy < 0:
+            hit_ceiling = (solid_tile_at(left, top) or solid_tile_at(right, top))
+
+            if hit_ceiling:
+                tile_bottom = ((top // 8) + 1) * 8
+                self.y = tile_bottom
+                self.vy = 0
 
     # JUMP SYSTEM
     def jump(self):
@@ -186,7 +187,7 @@ class Player:
 
         self.t += 1
         speed = max(1, anim['speed'])
-        trace(f'Timer: {self.t}; Frame: {self.frame}; State: {self.state}')
+        #trace(f'Timer: {self.t}; Frame: {self.frame}; State: {self.state}')
         if self.t >= speed:
             self.frame = (self.frame + 1) % anim['frames']
             self.t = 0
@@ -194,7 +195,7 @@ class Player:
     # DRAW PLAYER
     def draw(self, cam_x, cam_y):
         anim = self.animations[self.state]
-        sprite_id = anim['start'] + self.frame * 4
+        sprite_id = anim['start'] + self.frame * 2
         if not self.on_ground:
           self.flipper_t += 1
           if self.flipper_t >= self.flipper_speed:
@@ -210,7 +211,7 @@ class Player:
             colorkey=0,
             scale=1,
             flip=self.dir,
-            rotate=self.flipper,
+            rotate=0,
             w=2,
             h=2
         )
@@ -231,22 +232,26 @@ def solid_tile_at(px, py):
 
 # CAMERA
 def get_camera(player):
-    cam_x = int(player.x - 240//2)
-    cam_y = int(player.y - 136//2)
+    CAMERA_Y_OFFSET = -36
+    cam_x = round(player.x - 240//2)
+    cam_y = round(player.y - 136//2 + CAMERA_Y_OFFSET)
 
     cam_x = max(0, min(cam_x, MAP_W - 240))
     cam_y = max(0, min(cam_y, MAP_H - 136))
 
-    return cam_x, cam_y
+    return int(cam_x), int(cam_y)
 
 #Globals
 player = Player(100, 60)
 
 TILE_SIZE = 8
 MAP_W_TILES = 120
-MAP_H_TILES = 30
+MAP_H_TILES = 120
 MAP_W = MAP_W_TILES * TILE_SIZE
 MAP_H = MAP_H_TILES * TILE_SIZE
+W = 240
+H = 136
+T = 8
 
 def TIC():
     global player
@@ -256,12 +261,12 @@ def TIC():
     cam_x, cam_y = get_camera(player)
 
     map(
-        cam_x // TILE_SIZE,
-        cam_y // TILE_SIZE,
-        30,
-        20,
-        -(cam_x % TILE_SIZE),
-        -(cam_y % TILE_SIZE)
+        cam_x // T,
+        cam_y // T,
+        (W // T) + 1,
+        (H // T) + 1,
+        -(cam_x % T),
+        -(cam_y % T)
     )
 
     player.update(cam_x, cam_y)
