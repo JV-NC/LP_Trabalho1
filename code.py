@@ -70,6 +70,7 @@ class Player:
         self.attacking_on_ground = False
         self.attack_cooldown = 0
         self.attack_cooldown_max = self.attack_duration + 20
+        self.attack_dir = 'side'
 
     # HORIZONTAL MOVEMENT AND SIDE COLLISION
     def move_horizontal(self):
@@ -162,8 +163,8 @@ class Player:
 
     # JUMP SYSTEM
     def jump(self):
-        jump_pressed = btn(4) or key(23) or key(48)
-        jump_just_pressed = btnp(4) or key(23) or key(48)
+        jump_pressed = btn(4) or key(48)
+        jump_just_pressed = btnp(4) or key(48)
 
         if jump_just_pressed and self.on_ground:
             self.vy = self.jump_force
@@ -236,6 +237,13 @@ class Player:
         
         if not key(6): #'F' attacks
             return
+        
+        if btn(0) or key(23):
+            self.attack_dir = 'up'
+        elif (btn(1) or key(19)) and not self.on_ground:
+            self.attack_dir = 'down'
+        else:
+            self.attack_dir = 'side'
         
         self.attack_timer = self.attack_duration
         self.state = 'attack'
@@ -328,24 +336,25 @@ class Player:
 
         #draw attack
         if self.attack_timer>0:
-            if self.dir==0:
-                atk_x = self.x+self.w
+            if self.attack_dir == 'up':
+                atk_x = self.x + (self.w//2 - self.attack_w//2)
+                atk_y = self.y - self.attack_h
+
+                spr(self.attack_sprite,int(atk_x - cam_x),int(atk_y - cam_y),colorkey=0,scale=1,flip=self.dir,rotate=3,w=2,h=2)
+            elif self.attack_dir == 'down':
+                atk_x = self.x + (self.w//2 - self.attack_w//2)
+                atk_y = self.y + self.h
+
+                spr(self.attack_sprite,int(atk_x - cam_x),int(atk_y - cam_y),colorkey=0,scale=1,flip=self.dir,rotate=1,w=2,h=2)
             else:
-                atk_x = self.x-self.attack_w
+                if self.dir==0:
+                    atk_x = self.x+self.w
+                else:
+                    atk_x = self.x-self.attack_w
 
-            atk_y = self.y+2
+                atk_y = self.y+2
 
-            spr(
-                self.attack_sprite,
-                int(atk_x - cam_x),
-                int(atk_y - cam_y),
-                colorkey=0,
-                scale=1,
-                flip=self.dir,
-                rotate=0,
-                w=2,
-                h=2
-            )
+                spr(self.attack_sprite,int(atk_x - cam_x),int(atk_y - cam_y),colorkey=0,scale=1,flip=self.dir,rotate=0,w=2,h=2)
 
     # Gather all update methods
     def update(self, cam_x, cam_y):
