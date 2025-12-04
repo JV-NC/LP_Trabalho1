@@ -39,6 +39,7 @@ class Player:
             'run':  {'start': 260, 'frames': 2, 'speed': 12},
             'jump': {'start': 264, 'frames': 1, 'speed': 1},
             'fall': {'start': 266, 'frames': 1, 'speed': 1},
+            'sleep': {'start': 288, 'frames': 2, 'speed': 30},
         }
         self.state = 'idle'
         self.frame = 0
@@ -46,6 +47,8 @@ class Player:
         self.flipper = 0
         self.flipper_speed = 4
         self.flipper_t = 0
+        self.sleep_timer = 0
+        self.sleep_time = 180
 
     # HORIZONTAL MOVEMENT AND SIDE COLLISION
     def move_horizontal(self):
@@ -170,7 +173,14 @@ class Player:
             if abs(self.vx) > 1.0:
                 self.state = 'run'
             else:
-                self.state = 'idle'
+                if self.sleep_timer>=self.sleep_time:
+                    self.state = 'sleep'
+                else:
+                    self.state = 'idle'
+                    self.sleep_timer+=1
+                
+        if self.state not in ('idle','sleep'):
+            self.sleep_timer=0
 
         if old != self.state:
             self.frame = 0
