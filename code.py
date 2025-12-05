@@ -31,6 +31,7 @@ class Player:
 
         #physics
         self.gravity = 0.4
+        self.max_gravity = 3
         self.jump_force = -4
         self.jump_boost = -0.4
         self.max_jump_time = 12
@@ -45,6 +46,7 @@ class Player:
         self.djump_timer = 0
         self.djump_used = False
         self.jump_released = True
+        self.max_vertical_speed_djump = 2.0
 
         # animation
         self.w = 16
@@ -141,8 +143,8 @@ class Player:
     # GRAVITY AND VERTICAL COLLISION
     def apply_gravity(self):
         self.vy += self.gravity
-        if self.vy > 3:
-            self.vy = 3
+        if self.vy > self.max_gravity:
+            self.vy = self.max_gravity
 
         self.y += self.vy
 
@@ -207,7 +209,7 @@ class Player:
                 self.on_ground = False
                 self.jump_timer = 0
             else: #double jump
-                if (self.double_jump_unlocked and not self.djump_used and abs(self.vy)<1.0):
+                if (self.double_jump_unlocked and not self.djump_used and abs(self.vy)<self.max_vertical_speed_djump):
                     self.vy = self.djump_force
                     self.djump_used = True
                     self.djump_timer = 0
