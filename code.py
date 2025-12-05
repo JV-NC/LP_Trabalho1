@@ -5,10 +5,14 @@
 # version: 0.1
 # script:  python
 
-#TODO: implement attacking and interacting sprites states
-#TODO: implement player physical attack and projectile upgrade
+#TODO: implement damage on player and on enemies, no more hk
+#TODO: refactor projectile 'damage' and create atribute 'owner' for knowing who shoot it, for enemies dont kill each other
+#TODO: implement double jump (TT-TT)
 #TODO: implement 2 enemies structure type and 1 boss
-#TODO: fiz start button
+#TODO: draw better menu and gameover screen
+#TODO: refactor patrol enemy for patrol coordinates
+#TODO: fix interactables for working as chest and doors with keys
+#TODO: implement drop and collect keys
 
 class Player:
     def __init__(self, x, y):
@@ -40,6 +44,9 @@ class Player:
             'run':  {'start': 260, 'frames': 2, 'speed': 12},
             'jump': {'start': 264, 'frames': 1, 'speed': 1},
             'fall': {'start': 266, 'frames': 1, 'speed': 1},
+            'sleep': {'start': 288, 'frames': 2, 'speed': 30},
+            'interact': {'start': 268, 'frames': 1, 'speed': 1},
+            'attack': {'start': 270, 'frames': 1, 'speed': 1}
         }
         self.state = 'idle'
         self.frame = 0
@@ -47,6 +54,38 @@ class Player:
         self.flipper = 0
         self.flipper_speed = 4
         self.flipper_t = 0
+        self.sleep_timer = 0
+        self.sleep_time = 180
+
+        #interact
+        self.interact_timer = 0
+        self.interact_duration = 12
+        self.can_move = True
+
+        #attack
+        self.attack_timer = 0
+        self.attack_duration = 12
+        self.attack_sprite = 298
+        self.attack_w = 16
+        self.attack_h = 16
+        self.attacking_in_air = False
+        self.attacking_on_ground = False
+        self.attack_cooldown = 0
+        self.attack_cooldown_max = self.attack_duration + 20
+        self.attack_dir = 'side'
+
+        #projectile
+        self.shoot_unlocked = True
+        self.shoot_timer = 0
+        self.shoot_duration = 12
+        self.shoot_sprite = 302
+        self.shoot_w = 8
+        self.shoot_h = 8
+        self.shoot_cooldown = 0
+        self.shoot_cooldown_max = self.attack_duration + 40
+        self.shoot_speed = 4
+        self.shoot_distance = 80
+        self.rotation_time=0
 
     # HORIZONTAL MOVEMENT AND SIDE COLLISION
     def move_horizontal(self):
@@ -139,8 +178,8 @@ class Player:
 
     # JUMP SYSTEM
     def jump(self):
-        jump_pressed = btn(4) or key(23) or key(48)
-        jump_just_pressed = btnp(4) or key(23) or key(48)
+        jump_pressed = btn(4) or key(48)
+        jump_just_pressed = btnp(4) or key(48)
 
         if jump_just_pressed and self.on_ground:
             self.vy = self.jump_force
@@ -154,13 +193,133 @@ class Player:
 
     # MOVE
     def move(self):
+        if self.attack_cooldown>0:
+            self.attack_cooldown-=1
+        
+        if self.interact_timer>0 and self.attack_timer==0:
+            self.interact_timer-=1
+            if self.interact_timer ==0:
+                self.can_move = True
+            return
+        
+        if self.attack_timer>0:
+            self.attack_timer-=1
+            if self.attacking_in_air:
+                self.vx = 0
+                self.vy = 0
+                return
+            
+            if self.attacking_on_ground:
+                self.vx = 0
+                self.apply_gravity()
+                return
+        else:
+            self.attacking_in_air = False
+            self.attacking_on_ground = False
+        
+        if not self.can_move:
+            return
+        
         self.move_horizontal()
         self.apply_gravity()
         self.jump()
 
+    # INTERACT
+    def try_interact(self,interactibles):
+        if self.interact_timer>0 or not self.on_ground:
+            return
+
+        if not key(5): #'E' or button 'Y'
+            return
+        
+        self.interact_timer = self.interact_duration
+        self.can_move = False
+        self.state = 'interact'
+        self.frame = 0
+        self.t = 0
+
+        # procurar interagível em colisão
+        for obj in interactibles:
+            if obj.check_collision(self):
+                # checa requisito (se tiver)
+                if obj.req is None or obj.req(self):
+                    obj.trigger(self)
+                return
+
+    def try_attack(self):
+        if self.attack_timer>0 or self.attack_cooldown>0:
+            return
+        
+        if not key(6): #'F' attacks
+            return
+        
+        if btn(0) or key(23):
+            self.attack_dir = 'up'
+        elif (btn(1) or key(19)) and not self.on_ground:
+            self.attack_dir = 'down'
+        else:
+            self.attack_dir = 'side'
+        
+        self.attack_timer = self.attack_duration
+        self.state = 'attack'
+        self.frame = 0
+        self.t = 0
+        self.attack_cooldown = self.attack_cooldown_max
+
+        if not self.on_ground:
+            self.attacking_in_air = True
+            self.attacking_on_ground = False
+        else:
+            self.attacking_in_air = False
+            self.attacking_on_ground = True
+
+    def try_shoot(self, projectiles:list):
+        if not self.shoot_unlocked:
+            return
+        
+        if self.shoot_timer>0:
+            self.shoot_timer-=1
+
+        if self.shoot_cooldown>0:
+            self.shoot_cooldown-=1
+            return
+        
+        if not key(17):
+            return
+        
+        self.shoot_timer = self.shoot_duration
+        self.shoot_cooldown = self.attack_cooldown_max
+
+        #shoot starting point
+        if self.dir==0:
+            px = self.x+self.w
+        else:
+            px = self.x - self.shoot_w
+
+        py = self.y+self.h//2 - self.shoot_h//2
+
+        projectile = Projectile(px,py,self.dir,self.shoot_sprite,speed=self.shoot_speed,max_dist=self.shoot_distance,w=self.shoot_w,h=self.shoot_h,rotation_time=self.rotation_time)
+
+        projectiles.append(projectile)
+
     # STATE MACHINE
     def set_state(self):
         old = self.state
+
+        if self.interact_timer>0:
+            self.state = 'interact'
+            self.sleep_timer=0
+            return
+        
+        if self.attack_timer>0:
+            self.state = 'attack'
+            self.sleep_timer=0
+            return
+        
+        if self.shoot_timer>0: #state = shooting same sprite as interact for now
+            self.state = 'interact'
+            self.sleep_timer=0
+            return
 
         if not self.on_ground:
             if self.vy < 0:
@@ -171,7 +330,14 @@ class Player:
             if abs(self.vx) > 1.0:
                 self.state = 'run'
             else:
-                self.state = 'idle'
+                if self.sleep_timer>=self.sleep_time:
+                    self.state = 'sleep'
+                else:
+                    self.state = 'idle'
+                    self.sleep_timer+=1
+                
+        if self.state not in ('idle','sleep'):
+            self.sleep_timer=0
 
         if old != self.state:
             self.frame = 0
@@ -217,12 +383,100 @@ class Player:
             h=2
         )
 
+        #draw attack
+        if self.attack_timer>0:
+            if self.attack_dir == 'up':
+                atk_x = self.x + (self.w//2 - self.attack_w//2)
+                atk_y = self.y - self.attack_h
+
+                spr(self.attack_sprite,int(atk_x - cam_x),int(atk_y - cam_y),colorkey=0,scale=1,flip=self.dir,rotate=3,w=2,h=2)
+            elif self.attack_dir == 'down':
+                atk_x = self.x + (self.w//2 - self.attack_w//2)
+                atk_y = self.y + self.h
+
+                spr(self.attack_sprite,int(atk_x - cam_x),int(atk_y - cam_y),colorkey=0,scale=1,flip=self.dir,rotate=1,w=2,h=2)
+            else:
+                if self.dir==0:
+                    atk_x = self.x+self.w
+                else:
+                    atk_x = self.x-self.attack_w
+
+                atk_y = self.y+2
+
+                spr(self.attack_sprite,int(atk_x - cam_x),int(atk_y - cam_y),colorkey=0,scale=1,flip=self.dir,rotate=0,w=2,h=2)
+
     # Gather all update methods
     def update(self, cam_x, cam_y):
         self.move()
+        self.try_attack()
         self.set_state()
         self.animate()
         self.draw(cam_x, cam_y)
+
+# PROJECTILE
+class Projectile:
+    def __init__(self, x, y, dir, sprite, speed=3, max_dist=120, w=8, h=8, rotation_time=0):
+        self.x = x
+        self.y = y
+        self.dir = dir   # 0 = direita / 1 = esquerda
+        self.sprite = sprite
+        self.speed = speed
+        self.max_dist = max_dist
+        self.start_x = x
+        self.start_y = y
+        self.w = w
+        self.h = h
+         # rotation
+        self.rotation_time = rotation_time
+        self.rotation_timer = 0
+        self.rotation_frame = 0
+    
+    def move(self):
+        if self.dir == 0:
+            self.x += self.speed
+        else:
+            self.x -= self.speed
+
+        #rotation logic if time>0
+        if self.rotation_time>0:
+            self.rotation_timer+=1
+            if self.rotation_timer>=self.rotation_time:
+                self.rotation_frame = (self.rotation_frame+1)%4
+                self.rotation_timer = 0
+
+    def hit_solid(self):
+        return solid_tile_at(self.x, self.y) or solid_tile_at(self.x+self.w-1, self.y+self.h-1)
+    
+    def draw(self, cam_x, cam_y):
+        rotate_amt = self.rotation_frame if self.rotation_time > 0 else 0
+        spr(
+            self.sprite,
+            int(self.x - cam_x),
+            int(self.y - cam_y),
+            colorkey=0,
+            scale=1,
+            flip=self.dir,
+            rotate=rotate_amt,
+            w=1,
+            h=1
+        )
+
+    def dead(self):
+        dist = abs(self.x - self.start_x)
+        return dist > self.max_dist
+
+# INTERACTABLE
+class Interactable:
+    def __init__(self, x, y, w, h, trigger, req=None):
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+        self.trigger = trigger   # função a ser chamada
+        self.req = req           # requisito opcional (ex: chave)
+    
+    def check_collision(self, player):
+        return (self.x < player.x + player.w and self.x + self.w > player.x and self.y < player.y + player.h and self.y + self.h > player.y)
 
 # ---------- INIMIGOS ----------
 
@@ -362,8 +616,17 @@ def get_camera(player):
 player = Player(100, 60)
 
 enemies = [
-     Patrulha(200, 100, 468),
-     Patrulha(300, 100, 468),
+     Patrulha(200, 100, 348),
+     Patrulha(300, 100, 348),
+]
+
+projectiles = []
+
+def porta_trigger(player):
+    trace("Porta abriu!")
+
+interactables = [
+    Interactable(150, 80, 16, 16, porta_trigger),
 ]
 
 GAME_STATE = "menu"
@@ -376,7 +639,7 @@ music_started = False
 def draw_menu():
     cls()
     title = "TIC GAME"
-    start = "PRESSIONE D PARA JOGAR"
+    start = "PRESSIONE 'PULO' PARA JOGAR"
 
     # centraliza automaticamente
     print(title, 240//2 - (len(title)*4)//2, 40, 15, False, 2)
@@ -385,7 +648,7 @@ def draw_menu():
 def draw_game_over():
     cls()
     msg = "VOCE MORREU!"
-    retry = "PRESSIONE X PARA RECOMEÇAR"
+    retry = "PRESSIONE 'E' PARA RECOMEÇAR"
 
     print(msg, 240//2 - (len(msg)*4)//2, 40, 14, False, 2)
     print(retry, 240//2 - (len(retry)*4)//2, 80, 12, False, 1)
@@ -400,7 +663,7 @@ H = 136
 T = 8
 
 def TIC():
-    global player, GAME_STATE, death_timer, music_started
+    global player, GAME_STATE, death_timer, music_started, interactables, projectiles
 
     #music
     if not music_started:
@@ -409,8 +672,8 @@ def TIC():
 
     if GAME_STATE == "menu":
         draw_menu()
-        # D = começar jogo
-        if btn(3) or key(4):  # botão X do TIC-80
+        # SPACE = começar jogo
+        if btn(4) or key(48):  # botão 'A' do TIC-80
             player = Player(100, 60)
             GAME_STATE = "game"
         return
@@ -430,6 +693,32 @@ def TIC():
         )
         #update player
         player.update(cam_x, cam_y)
+        player.try_interact(interactables)
+        player.try_shoot(projectiles)
+
+        #update projectiles
+        to_remove = []
+        for proj in projectiles:
+            proj.move()
+
+            if proj.hit_solid():
+                to_remove.append(proj)
+                continue
+
+            for enemy in enemies:
+                if(proj.x < enemy.x + enemy.w and proj.x + proj.w > enemy.x and proj.y < enemy.y + enemy.h and proj.y + proj.h > enemy.y):
+                    to_remove.append(proj)
+                    enemies.remove(enemy)
+                    break
+            
+            if proj.dead():
+                to_remove.append(proj)
+            
+            proj.draw(cam_x, cam_y)
+
+        for p in to_remove:
+            if p in projectiles:
+                projectiles.remove(p)
 
         #update enemy
         for enemy in enemies:
@@ -452,7 +741,7 @@ def TIC():
             death_timer -= 1
             return
 
-        # X = volta ao menu
-        if btnp(4):
+        # E = volta ao menu
+        if btnp(7) or key(5):
             GAME_STATE = "menu"
         return
