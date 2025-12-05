@@ -478,6 +478,9 @@ class Interactable:
     def check_collision(self, player):
         return (self.x < player.x + player.w and self.x + self.w > player.x and self.y < player.y + player.h and self.y + self.h > player.y)
 
+def porta_trigger(player):
+    trace("Porta abriu!")
+
 # ---------- INIMIGOS ----------
 
 class Patrulha:
@@ -612,28 +615,6 @@ def get_camera(player):
 
     return int(cam_x), int(cam_y)
 
-#Globals
-player = Player(100, 60)
-
-enemies = [
-     Patrulha(200, 100, 348),
-     Patrulha(300, 100, 348),
-]
-
-projectiles = []
-
-def porta_trigger(player):
-    trace("Porta abriu!")
-
-interactables = [
-    Interactable(150, 80, 16, 16, porta_trigger),
-]
-
-GAME_STATE = "menu"
-death_timer = 0
-
-music_started = False
-
 # ---------- GAME SCREENS ----------
 
 def draw_menu():
@@ -652,6 +633,25 @@ def draw_game_over():
 
     print(msg, 240//2 - (len(msg)*4)//2, 40, 14, False, 2)
     print(retry, 240//2 - (len(retry)*4)//2, 80, 12, False, 1)
+
+#GLOBALS
+player = Player(100, 60)
+
+enemies = [
+     Patrulha(200, 100, 348),
+     Patrulha(300, 100, 348),
+]
+
+projectiles = []
+
+interactables = [
+    Interactable(150, 80, 16, 16, porta_trigger),
+]
+
+GAME_STATE = "menu"
+death_timer = 0
+
+music_started = False
 
 TILE_SIZE = 8
 MAP_W_TILES = 120
