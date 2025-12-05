@@ -6,6 +6,7 @@
 # script:  python
 
 #TODO: implement damage on player and on enemies, no more hk
+#TODO: implement recoil for damage and refactor attack for moving with recoil
 #TODO: refactor projectile 'damage' and create atribute 'owner' for knowing who shoot it, for enemies dont kill each other
 #TODO: implement double jump (TT-TT)
 #TODO: implement 2 enemies structure type and 1 boss
@@ -16,7 +17,7 @@
 
 class Player:
     def __init__(self, x, y):
-        # location
+        #location
         self.x = x
         self.y = y
         self.vx = 0
@@ -28,13 +29,22 @@ class Player:
         self.aspeed = 0.5
         self.dir = 0   # 0 right / 1 left
 
-        # physics
+        #physics
         self.gravity = 0.4
         self.jump_force = -4
         self.jump_boost = -0.4
         self.max_jump_time = 12
         self.jump_timer = 0
         self.on_ground = False
+
+        #double jump
+        self.double_jump_unlocked = True
+        self.djump_force = -3
+        self.djump_boost = -0.4
+        self.max_djump_time = 12
+        self.djump_timer = 0
+        self.djump_used = False
+        self.jump_released = True
 
         # animation
         self.w = 16
@@ -163,7 +173,11 @@ class Player:
                 tile_top = foot_tile_y * 8
                 self.y = tile_top - self.h
                 self.vy = 0
+                #landed resets jump states
                 self.on_ground = True
+                self.jump_timer = 0
+                self.djump_timer = 0
+                self.djump_used = False
             else:
                 self.on_ground = False
 
@@ -179,17 +193,33 @@ class Player:
     # JUMP SYSTEM
     def jump(self):
         jump_pressed = btn(4) or key(48)
-        jump_just_pressed = btnp(4) or key(48)
+        jump_just_pressed = (jump_pressed and self.jump_released)
 
-        if jump_just_pressed and self.on_ground:
-            self.vy = self.jump_force
-            self.on_ground = False
-            self.jump_timer = 0
+        #update button state
+        if not jump_pressed:
+            self.jump_released = True
+
+        if jump_just_pressed:
+            self.jump_released = False
+            if self.on_ground:
+                #normal jump from ground
+                self.vy = self.jump_force
+                self.on_ground = False
+                self.jump_timer = 0
+            else: #double jump
+                if (self.double_jump_unlocked and not self.djump_used and abs(self.vy)<1.0):
+                    self.vy = self.djump_force
+                    self.djump_used = True
+                    self.djump_timer = 0
 
         if jump_pressed and not self.on_ground and self.vy < 0:
-            if self.jump_timer < self.max_jump_time:
+            #jump from ground jump boost if not double jumped
+            if self.jump_timer < self.max_jump_time and not self.djump_used:
                 self.vy += self.jump_boost
                 self.jump_timer += 1
+            elif self.djump_used and self.djump_timer<self.max_djump_time:
+                self.vy += self.djump_boost
+                self.djump_timer +=1
 
     # MOVE
     def move(self):
