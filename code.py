@@ -8,7 +8,6 @@
 #TODO: implement damage on player and on enemies, no more hk
 #TODO: implement recoil for damage and refactor attack for moving with recoil
 #TODO: refactor projectile 'damage' and create atribute 'owner' for knowing who shoot it, for enemies dont kill each other
-#TODO: implement double jump (TT-TT)
 #TODO: implement 2 enemies structure type and 1 boss
 #TODO: draw better menu and gameover screen
 #TODO: refactor patrol enemy for patrol coordinates
@@ -403,17 +402,11 @@ class Player:
         else:
           self.flipper = 0
           self.flipper_t = 0
-        spr(
-            sprite_id,
-            int(self.x - cam_x),
-            int(self.y - cam_y),
-            colorkey=0,
-            scale=1,
-            flip=self.dir,
-            rotate=0,
-            w=2,
-            h=2
-        )
+
+        if self.djump_used: #rotate jump sprite if is a double jump
+            spr(sprite_id,int(self.x - cam_x),int(self.y - cam_y),colorkey=0,scale=1,flip=self.dir,rotate=self.flipper,w=2,h=2)
+        else:
+            spr(sprite_id,int(self.x - cam_x),int(self.y - cam_y),colorkey=0,scale=1,flip=self.dir,rotate=0,w=2,h=2)
 
         #draw attack
         if self.attack_timer>0:
