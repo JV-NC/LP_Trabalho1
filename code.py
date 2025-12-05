@@ -14,6 +14,9 @@
 #TODO: fix interactables for working as chest and doors with keys
 #TODO: implement drop and collect keys
 
+
+import random
+
 class Player:
     def __init__(self, x, y):
         # location
@@ -595,6 +598,131 @@ class Patrulha:
             return True
         return False
 
+class Perseguidor:
+    def __init__(self, x, y, sprite_base):
+        self.x = x
+        self.y = y
+        self.w = 8
+        self.h = 8
+        
+        self.start_x = x
+        self.start_y = y
+
+        self.vx = 0
+        self.vy = 0
+        self.gravity = 0.4
+        self.on_ground = False
+
+        # animação 380 e 381
+        self.sprite_base = sprite_base
+        self.frame = 0
+        self.frame_max = 2    # 380 e 381
+        self.anim_speed = 15
+        self.t = 0
+
+        # perseguição
+        self.speed = 0.6
+        
+        
+    def reset(self):
+        self.x = self.start_x
+        self.y = self.start_y
+        self.vx = 0
+        self.vy = 0
+
+
+    def move_towards_player(self, player):
+        dx = player.x - self.x
+        dy = player.y - self.y
+        dist = (dx**2 + dy**2)**0.5
+
+        if dist <= 150:   # só persegue quando vê
+            # horizontal
+            if dx < 0:
+                self.vx = -self.speed
+            else:
+                self.vx = self.speed
+
+            # vertical (voador)
+            if dy < 0:
+                self.vy = -self.speed / 2
+            else:
+                self.vy = self.speed / 2
+        else:
+            self.vx = 0
+            self.vy = 0
+
+        # aplica movimento
+        self.x += self.vx
+        self.y += self.vy
+
+        # colisão horizontal simples
+        left = int(self.x)
+        right = int(self.x + self.w - 1)
+        top = int(self.y)
+        bottom = int(self.y + self.h - 1)
+
+        if self.vx > 0:
+            if solid_tile_at(right, top) or solid_tile_at(right, bottom):
+                self.x -= self.vx
+                self.vx = 0
+        elif self.vx < 0:
+            if solid_tile_at(left, top) or solid_tile_at(left, bottom):
+                self.x -= self.vx
+                self.vx = 0
+
+    def apply_gravity(self):
+        # inimigo voador → gravidade leve mas ainda aplica colisão
+        self.vy += self.gravity
+        if self.vy > 3:
+            self.vy = 3
+
+        self.y += self.vy
+
+        left = int(self.x)
+        right = int(self.x + self.w - 1)
+        top = int(self.y)
+        bottom = int(self.y + self.h - 1)
+
+        # colisão chão
+        if self.vy > 0:
+            if solid_tile_at(left, bottom) or solid_tile_at(right, bottom):
+                self.y = (bottom // 8) * 8 - self.h
+                self.vy = 0
+                self.on_ground = True
+            else:
+                self.on_ground = False
+
+        # colisão teto
+        elif self.vy < 0:
+            if solid_tile_at(left, top) or solid_tile_at(right, top):
+                self.y = (top // 8 + 1) * 8
+                self.vy = 0
+
+    def animate(self):
+        self.t += 1
+        if self.t % self.anim_speed == 0:
+            self.frame = (self.frame + 1) % self.frame_max  # alterna 380/381
+
+    def check_collision_player(self, player):
+        return (
+            self.x < player.x + player.w and self.x + self.w > player.x and self.y < player.y + player.h and self.y + self.h > player.y
+        )
+
+    def update(self, cam_x, cam_y, player):
+        self.move_towards_player(player)
+        self.apply_gravity()
+        self.animate()
+        self.draw(cam_x, cam_y)
+
+    def draw(self, cam_x, cam_y):
+        spr(self.sprite_base + self.frame,
+            int(self.x - cam_x),
+            int(self.y - cam_y),
+            colorkey=0,
+            scale=2)
+
+
 # ---------- MAPA ----------
 
 # TILE SOLID CHECK
@@ -635,11 +763,33 @@ def draw_game_over():
     print(retry, 240//2 - (len(retry)*4)//2, 80, 12, False, 1)
 
 #GLOBALS
+
+TILE_SIZE = 8
+MAP_W_TILES = 120
+MAP_H_TILES = 120
+MAP_W = MAP_W_TILES * TILE_SIZE
+MAP_H = MAP_H_TILES * TILE_SIZE
+W = 240
+H = 136
+T = 8
+
+
+def rand(a, b):
+    return random.randint(a, b) 
+
 player = Player(100, 60)
+
+
+inimigo_perseguidor = Perseguidor(
+    2 * TILE_SIZE,  # x aleatório
+    13 * TILE_SIZE,      # y no chão
+    380                   # sprite base
+)
 
 enemies = [
      Patrulha(200, 100, 348),
      Patrulha(300, 100, 348),
+     inimigo_perseguidor
 ]
 
 projectiles = []
@@ -653,14 +803,7 @@ death_timer = 0
 
 music_started = False
 
-TILE_SIZE = 8
-MAP_W_TILES = 120
-MAP_H_TILES = 120
-MAP_W = MAP_W_TILES * TILE_SIZE
-MAP_H = MAP_H_TILES * TILE_SIZE
-W = 240
-H = 136
-T = 8
+
 
 def TIC():
     global player, GAME_STATE, death_timer, music_started, interactables, projectiles
