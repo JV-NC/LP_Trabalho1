@@ -5,14 +5,31 @@
 # version: 0.1
 # script:  python
 
-#TODO: implement damage on player and on enemies, no more hk
-#TODO: implement recoil for damage and refactor attack for moving with recoil
+#TODO: fix double jump attack rotation
+#TODO: implement damage on enemies, no more hk
+#TODO: refactor attack for moving with recoil
 #TODO: refactor projectile 'damage' and create atribute 'owner' for knowing who shoot it, for enemies dont kill each other
 #TODO: implement 2 enemies structure type and 1 boss
 #TODO: draw better menu and gameover screen
 #TODO: refactor patrol enemy for patrol coordinates
 #TODO: fix interactables for working as chest and doors with keys
 #TODO: implement drop and collect keys
+
+#RECOIL
+def recoil(target, causer_x, causer_y, side_force=2,up_force=-2):
+    tx = target.x + (getattr(target, "w") / 2)
+    dx = tx - causer_x
+    #if 0, push to right
+    if dx == 0:
+        dir_sign = 1 if getattr(target, "vx", 0) >= 0 else -1
+    else:
+        dir_sign = 1 if dx > 0 else -1
+
+    # Apply horizontal push
+    target.vx += side_force * dir_sign
+
+    # Aply vertical push upwards
+    target.vy = up_force
 
 class Player:
     def __init__(self, x, y):
@@ -46,6 +63,12 @@ class Player:
         self.djump_used = False
         self.jump_released = True
         self.max_vertical_speed_djump = 2.0
+
+        #take damage
+        self.max_hp = 3
+        self.hp = self.max_hp
+        self.invincible_timer = 0
+        self.invincible_duration = 30
 
         # animation
         self.w = 16
@@ -226,6 +249,9 @@ class Player:
     def move(self):
         if self.attack_cooldown>0:
             self.attack_cooldown-=1
+
+        if self.invincible_timer >0:
+            self.invincible_timer-=1
         
         if self.interact_timer>0 and self.attack_timer==0:
             self.interact_timer-=1
@@ -254,6 +280,24 @@ class Player:
         self.move_horizontal()
         self.apply_gravity()
         self.jump()
+
+    # TAKE DAMAGE
+    def take_damage(self,amount,causer_x,causer_y,knockback=3, i_frames=None):
+        if self.invincible_timer>0:
+            return False
+        
+        #apply damage
+        self.hp -= amount
+        self.invincible_timer = self.invincible_duration if i_frames is None else i_frames
+
+        recoil(self, causer_x, causer_y, side_force=knockback,up_force=-4)
+
+        if self.hp<=0:
+            global GAME_STATE,death_timer
+            GAME_STATE = 'dead'
+            death_timer = 20
+        return True
+        
 
     # INTERACT
     def try_interact(self,interactibles):
@@ -403,10 +447,16 @@ class Player:
           self.flipper = 0
           self.flipper_t = 0
 
-        if self.djump_used: #rotate jump sprite if is a double jump
-            spr(sprite_id,int(self.x - cam_x),int(self.y - cam_y),colorkey=0,scale=1,flip=self.dir,rotate=self.flipper,w=2,h=2)
-        else:
-            spr(sprite_id,int(self.x - cam_x),int(self.y - cam_y),colorkey=0,scale=1,flip=self.dir,rotate=0,w=2,h=2)
+        #if invincible, sprite flicker
+        show_sprite = True
+        if self.invincible_timer>0:
+            show_sprite = (self.invincible_timer%4)<2
+        
+        if show_sprite:
+            if self.djump_used: #rotate jump sprite if is a double jump
+                spr(sprite_id,int(self.x - cam_x),int(self.y - cam_y),colorkey=0,scale=1,flip=self.dir,rotate=self.flipper,w=2,h=2)
+            else:
+                spr(sprite_id,int(self.x - cam_x),int(self.y - cam_y),colorkey=0,scale=1,flip=self.dir,rotate=0,w=2,h=2)
 
         #draw attack
         if self.attack_timer>0:
@@ -746,11 +796,18 @@ def TIC():
                 projectiles.remove(p)
 
         #update enemy
-        for enemy in enemies:
+        for enemy in list(enemies):
             enemy.update(cam_x, cam_y, player)
             if enemy.check_collision_player(player):
-                GAME_STATE = "dead"
-                death_timer = 20
+                #apply damage if player isn't invincible
+                if player.invincible_timer==0:
+                    player.take_damage(1,enemy.x+enemy.w/2,enemy.y+enemy.h/2, knockback=4)
+                    #recoil(enemy, player.x + player.w/2, player.y + player.h/2, force=1, up_force=-1)
+            """remove enemy if is out of map
+            if enemy.y > MAP_H or enemy.hp <= 0:
+                if enemy in enemies:
+                    enemies.remove(enemy)
+            """
 
         #fall from map
         if player.y > MAP_H:
