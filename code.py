@@ -5,8 +5,9 @@
 # version: 0.1
 # script:  python
 
-#TODO: implement damage on player and on enemies, no more hk
-#TODO: implement recoil for damage and refactor attack for moving with recoil
+#TODO: fix double jump attack rotation
+#TODO: implement damage on enemies, no more hk
+#TODO: refactor attack for moving with recoil
 #TODO: refactor projectile 'damage' and create atribute 'owner' for knowing who shoot it, for enemies dont kill each other
 #TODO: implement 2 enemies structure type and 1 boss
 #TODO: draw better menu and gameover screen
@@ -14,7 +15,7 @@
 #TODO: fix interactables for working as chest and doors with keys
 #TODO: implement drop and collect keys
 
-#Recoil
+#RECOIL
 def recoil(target, causer_x, causer_y, side_force=2,up_force=-2):
     tx = target.x + (getattr(target, "w") / 2)
     dx = tx - causer_x
@@ -446,10 +447,16 @@ class Player:
           self.flipper = 0
           self.flipper_t = 0
 
-        if self.djump_used: #rotate jump sprite if is a double jump
-            spr(sprite_id,int(self.x - cam_x),int(self.y - cam_y),colorkey=0,scale=1,flip=self.dir,rotate=self.flipper,w=2,h=2)
-        else:
-            spr(sprite_id,int(self.x - cam_x),int(self.y - cam_y),colorkey=0,scale=1,flip=self.dir,rotate=0,w=2,h=2)
+        #if invincible, sprite flicker
+        show_sprite = True
+        if self.invincible_timer>0:
+            show_sprite = (self.invincible_timer%4)<2
+        
+        if show_sprite:
+            if self.djump_used: #rotate jump sprite if is a double jump
+                spr(sprite_id,int(self.x - cam_x),int(self.y - cam_y),colorkey=0,scale=1,flip=self.dir,rotate=self.flipper,w=2,h=2)
+            else:
+                spr(sprite_id,int(self.x - cam_x),int(self.y - cam_y),colorkey=0,scale=1,flip=self.dir,rotate=0,w=2,h=2)
 
         #draw attack
         if self.attack_timer>0:
