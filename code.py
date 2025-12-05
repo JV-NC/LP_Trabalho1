@@ -85,6 +85,7 @@ class Player:
         self.shoot_cooldown_max = self.attack_duration + 40
         self.shoot_speed = 4
         self.shoot_distance = 80
+        self.rotation_time=0
 
     # HORIZONTAL MOVEMENT AND SIDE COLLISION
     def move_horizontal(self):
@@ -297,7 +298,7 @@ class Player:
 
         py = self.y+self.h//2 - self.shoot_h//2
 
-        projectile = Projectile(px,py,self.dir,self.shoot_sprite,speed=self.shoot_speed,max_dist=self.shoot_distance,w=self.shoot_w,h=self.shoot_h)
+        projectile = Projectile(px,py,self.dir,self.shoot_sprite,speed=self.shoot_speed,max_dist=self.shoot_distance,w=self.shoot_w,h=self.shoot_h,rotation_time=self.rotation_time)
 
         projectiles.append(projectile)
 
@@ -414,7 +415,7 @@ class Player:
 
 # PROJECTILE
 class Projectile:
-    def __init__(self, x, y, dir, sprite, speed=3, max_dist=120, w=8, h=8):
+    def __init__(self, x, y, dir, sprite, speed=3, max_dist=120, w=8, h=8, rotation_time=0):
         self.x = x
         self.y = y
         self.dir = dir   # 0 = direita / 1 = esquerda
@@ -425,6 +426,10 @@ class Projectile:
         self.start_y = y
         self.w = w
         self.h = h
+         # rotation
+        self.rotation_time = rotation_time
+        self.rotation_timer = 0
+        self.rotation_frame = 0
     
     def move(self):
         if self.dir == 0:
@@ -432,16 +437,26 @@ class Projectile:
         else:
             self.x -= self.speed
 
+        #rotation logic if time>0
+        if self.rotation_time>0:
+            self.rotation_timer+=1
+            if self.rotation_timer>=self.rotation_time:
+                self.rotation_frame = (self.rotation_frame+1)%4
+                self.rotation_timer = 0
+
     def hit_solid(self):
         return solid_tile_at(self.x, self.y) or solid_tile_at(self.x+self.w-1, self.y+self.h-1)
     
     def draw(self, cam_x, cam_y):
+        rotate_amt = self.rotation_frame if self.rotation_time > 0 else 0
         spr(
             self.sprite,
             int(self.x - cam_x),
             int(self.y - cam_y),
             colorkey=0,
             scale=1,
+            flip=self.dir,
+            rotate=rotate_amt,
             w=1,
             h=1
         )
