@@ -5,7 +5,9 @@
 # version: 0.1
 # script:  python
 
-#TODO: implement player physical attack and projectile upgrade
+#TODO: implement damage on player and on enemies, no more hk
+#TODO: refactor projectile 'damage' and create atribute 'owner' for knowing who shoot it, for enemies dont kill each other
+#TODO: implement double jump (TT-TT)
 #TODO: implement 2 enemies structure type and 1 boss
 #TODO: draw better menu and gameover screen
 #TODO: refactor patrol enemy for patrol coordinates
@@ -71,6 +73,18 @@ class Player:
         self.attack_cooldown = 0
         self.attack_cooldown_max = self.attack_duration + 20
         self.attack_dir = 'side'
+
+        #projectile
+        self.shoot_unlocked = True
+        self.shoot_timer = 0
+        self.shoot_duration = 12
+        self.shoot_sprite = 302
+        self.shoot_w = 8
+        self.shoot_h = 8
+        self.shoot_cooldown = 0
+        self.shoot_cooldown_max = self.attack_duration + 40
+        self.shoot_speed = 4
+        self.shoot_distance = 80
 
     # HORIZONTAL MOVEMENT AND SIDE COLLISION
     def move_horizontal(self):
@@ -258,6 +272,35 @@ class Player:
             self.attacking_in_air = False
             self.attacking_on_ground = True
 
+    def try_shoot(self, projectiles:list):
+        if not self.shoot_unlocked:
+            return
+        
+        if self.shoot_timer>0:
+            self.shoot_timer-=1
+
+        if self.shoot_cooldown>0:
+            self.shoot_cooldown-=1
+            return
+        
+        if not key(17):
+            return
+        
+        self.shoot_timer = self.shoot_duration
+        self.shoot_cooldown = self.attack_cooldown_max
+
+        #shoot starting point
+        if self.dir==0:
+            px = self.x+self.w
+        else:
+            px = self.x - self.shoot_w
+
+        py = self.y+self.h//2 - self.shoot_h//2
+
+        projectile = Projectile(px,py,self.dir,self.shoot_sprite,speed=self.shoot_speed,max_dist=self.shoot_distance,w=self.shoot_w,h=self.shoot_h)
+
+        projectiles.append(projectile)
+
     # STATE MACHINE
     def set_state(self):
         old = self.state
@@ -269,6 +312,11 @@ class Player:
         
         if self.attack_timer>0:
             self.state = 'attack'
+            self.sleep_timer=0
+            return
+        
+        if self.shoot_timer>0: #state = shooting same sprite as interact for now
+            self.state = 'interact'
             self.sleep_timer=0
             return
 
@@ -363,6 +411,44 @@ class Player:
         self.set_state()
         self.animate()
         self.draw(cam_x, cam_y)
+
+# PROJECTILE
+class Projectile:
+    def __init__(self, x, y, dir, sprite, speed=3, max_dist=120, w=8, h=8):
+        self.x = x
+        self.y = y
+        self.dir = dir   # 0 = direita / 1 = esquerda
+        self.sprite = sprite
+        self.speed = speed
+        self.max_dist = max_dist
+        self.start_x = x
+        self.start_y = y
+        self.w = w
+        self.h = h
+    
+    def move(self):
+        if self.dir == 0:
+            self.x += self.speed
+        else:
+            self.x -= self.speed
+
+    def hit_solid(self):
+        return solid_tile_at(self.x, self.y) or solid_tile_at(self.x+self.w-1, self.y+self.h-1)
+    
+    def draw(self, cam_x, cam_y):
+        spr(
+            self.sprite,
+            int(self.x - cam_x),
+            int(self.y - cam_y),
+            colorkey=0,
+            scale=1,
+            w=1,
+            h=1
+        )
+
+    def dead(self):
+        dist = abs(self.x - self.start_x)
+        return dist > self.max_dist
 
 # INTERACTABLE
 class Interactable:
@@ -519,6 +605,8 @@ enemies = [
      Patrulha(300, 100, 348),
 ]
 
+projectiles = []
+
 def porta_trigger(player):
     trace("Porta abriu!")
 
@@ -560,7 +648,7 @@ H = 136
 T = 8
 
 def TIC():
-    global player, GAME_STATE, death_timer, music_started, interactables
+    global player, GAME_STATE, death_timer, music_started, interactables, projectiles
 
     #music
     if not music_started:
@@ -591,6 +679,31 @@ def TIC():
         #update player
         player.update(cam_x, cam_y)
         player.try_interact(interactables)
+        player.try_shoot(projectiles)
+
+        #update projectiles
+        to_remove = []
+        for proj in projectiles:
+            proj.move()
+
+            if proj.hit_solid():
+                to_remove.append(proj)
+                continue
+
+            for enemy in enemies:
+                if(proj.x < enemy.x + enemy.w and proj.x + proj.w > enemy.x and proj.y < enemy.y + enemy.h and proj.y + proj.h > enemy.y):
+                    to_remove.append(proj)
+                    enemies.remove(enemy)
+                    break
+            
+            if proj.dead():
+                to_remove.append(proj)
+            
+            proj.draw(cam_x, cam_y)
+
+        for p in to_remove:
+            if p in projectiles:
+                projectiles.remove(p)
 
         #update enemy
         for enemy in enemies:
