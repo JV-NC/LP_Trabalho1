@@ -6,7 +6,6 @@
 # script:  python
 
 #TODO: fix double jump attack rotation
-#TODO: implement enemy mutliple sprite size
 #TODO: implement jump on Stalker enemies
 #TODO: implement Ghost Stalker
 #TODO: refactor patrol enemy for patrol distance
@@ -582,6 +581,7 @@ class Enemy:
         self.frame_max = frame_max
         self.anim_speed = anim_speed
         self.t = 0
+        self.facing = 0 # 0 right / 1 left
 
         #physics
         self.vx = 0
@@ -653,11 +653,17 @@ class Enemy:
             self.frame = (self.frame + 1) % self.frame_max
     
     def draw(self, cam_x, cam_y):
+        sx = self.w//8
+        sy = self.h//8
+        tiles_per_frame = sx
         spr(
-            self.sprite_base + self.frame,
+            self.sprite_base + (self.frame*tiles_per_frame),
             int(self.x - cam_x),
             int(self.y - cam_y),
-            colorkey=0
+            colorkey=0,
+            w=sx,
+            h=sy,
+            flip = self.facing
         )
     
     def check_collision_player(self, player):
@@ -681,6 +687,7 @@ class Patrol(Enemy):
         self.patrol_range = 105
 
     def move_behavior(self, player: Player):
+        self.facing = 0 if self.vx>=0 else 1
         old_x = self.x
 
         if abs(player.x - self.x) >self.patrol_range:
@@ -731,6 +738,7 @@ class Stalker(Enemy):
         self.vy = 0
 
     def move_behavior(self, player):
+        self.facing = 0 if self.vx>=0 else 1
         #follows player
         if player.x>self.x:
             self.vx = self.speed
@@ -813,7 +821,7 @@ def rand(a, b):
 player = Player(100, 60)
 
 enemies = [
-     Patrol(200,100,8,8,348),
+     Patrol(200,100,16,32,320,speed=0.5),
      Patrol(200,100,8,8,348),
      Stalker(16,104,8,8,364,speed=0.6,knockback=7)
 ]
