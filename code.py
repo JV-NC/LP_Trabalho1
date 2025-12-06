@@ -7,7 +7,6 @@
 
 #TODO: fix double jump attack rotation
 #TODO: implement enemy mutliple sprite size
-#TODO: implement enemy attributes (hp, damage, speed and knockback)
 #TODO: implement jump on Stalker enemies
 #TODO: implement Ghost Stalker
 #TODO: refactor patrol enemy for patrol distance
@@ -564,11 +563,18 @@ def porta_trigger(player):
 
 # ---------- ENEMIES ----------
 class Enemy:
-    def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15):
+    def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15, max_hp=1,damage=1,speed=1,knockback=4):
         self.x = x
         self.y = y
         self.w = w
         self.h = h
+
+        #standard attributes
+        self.max_hp = max_hp
+        self.hp = max_hp
+        self.damage = damage
+        self.knockback = knockback
+        self.speed = speed
 
         #animation
         self.sprite_base = sprite_base
@@ -592,6 +598,24 @@ class Enemy:
 
     def on_player_collision(self,player: Player):
         pass
+
+    def is_dead(self):
+        return self.hp<=0
+    
+    def kill(self):
+        self.hp = 0
+
+    def take_damage(self, amount, source = None):
+        self.hp -= amount
+
+        if self.hp < 0:
+            self.hp = 0
+
+        #future flicking
+
+        #future implementation of recoil
+
+        #possible on_death actions
 
     def apply_gravity(self):
         self.vy += self.gravity
@@ -651,9 +675,8 @@ class Enemy:
             self.on_player_collision(player)
 
 class Patrol(Enemy):
-    def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15):
-        super().__init__(x, y, w, h, sprite_base, frame_max, anim_speed)
-
+    def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15, max_hp=1, damage=1, speed=1, knockback=1):
+        super().__init__(x, y, w, h, sprite_base, frame_max, anim_speed, max_hp, damage, speed, knockback)
         self.dir = 1
         self.patrol_range = 105
 
@@ -663,7 +686,7 @@ class Patrol(Enemy):
         if abs(player.x - self.x) >self.patrol_range:
             self.dir *=-1
 
-        self.vx = self.dir
+        self.vx = self.dir * self.speed
 
         front_x = self.x + (self.vx > 0) * self.w
         front_y = self.y + self.h
@@ -692,13 +715,12 @@ class Patrol(Enemy):
 
     def on_player_collision(self, player: Player):
         if player.invincible_timer==0:
-            player.take_damage(1,self.x,self.y,4)
+            player.take_damage(self.damage,self.x,self.y,self.knockback)
 
 class Stalker(Enemy):
-    def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15):
-        super().__init__(x, y, w, h, sprite_base, frame_max, anim_speed)
+    def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15, max_hp=1, damage=1, speed=1, knockback=1):
+        super().__init__(x, y, w, h, sprite_base, frame_max, anim_speed, max_hp, damage, speed, knockback)
 
-        self.speed = 0.6
         self.start_x = x
         self.start_y = y
 
@@ -732,7 +754,7 @@ class Stalker(Enemy):
 
     def on_player_collision(self, player):
         if player.invincible_timer==0:
-            player.take_damage(1,self.x,self.y,4)
+            player.take_damage(self.damage,self.x,self.y,self.knockback)
 
 # ---------- MAPA ----------
 
@@ -793,7 +815,7 @@ player = Player(100, 60)
 enemies = [
      Patrol(200,100,8,8,348),
      Patrol(200,100,8,8,348),
-     Stalker(16,104,8,8,364)
+     Stalker(16,104,8,8,364,speed=0.6,knockback=7)
 ]
 
 projectiles = []
