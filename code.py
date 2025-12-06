@@ -11,7 +11,6 @@
 #TODO: fix create init function to call on restart
 #TODO: implement Ghost Stalker
 #TODO: implement projectile damage on enemies
-#TODO: refactor attack for moving with recoil
 #TODO: refactor projectile 'damage' and create atribute 'owner' for knowing who shoot it, for enemies dont kill each other
 #TODO: implement 2 enemies structure type and 1 boss
 #TODO: draw better menu and gameover screen
@@ -267,8 +266,12 @@ class Player:
         if self.attack_timer>0:
             self.attack_timer-=1
             if self.attacking_in_air:
+                """if want lock on air
                 self.vx = 0
                 self.vy = 0
+                if want pogo"""
+                self.apply_gravity()
+                self.move_horizontal()
                 return
             
             if self.attacking_on_ground:
@@ -651,6 +654,12 @@ class Enemy:
             recoil(self, player.x + player.w / 2, player.y + player.h / 2, side_force=self.side_force, up_force=-3)
             self.invincible_timer = self.invincible_duration
             self.stun_timer = self.stun_duration
+
+            #pogo on player
+            if player.attack_dir=='up':
+                recoil(player,self.x,self.y,side_force=0,up_force=4)
+            elif player.attack_dir=='down':
+                recoil(player,self.x,self.y,side_force=0,up_force=-6)
 
     def is_dead(self):
         return self.hp<=0
