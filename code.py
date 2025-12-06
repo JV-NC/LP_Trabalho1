@@ -7,8 +7,10 @@
 
 #TODO: fix double jump attack rotation
 #TODO: fix (or ignore) enemy flicking on_ground because of bad apply_gravity
+#TODO: fix Patrol Enemy for 'real' patrol_range funcionality, if have time
+#TODO: fix create init function to call on restart
 #TODO: implement Ghost Stalker
-#TODO: implement damage on enemies, no more hk
+#TODO: implement projectile damage on enemies
 #TODO: refactor attack for moving with recoil
 #TODO: refactor projectile 'damage' and create atribute 'owner' for knowing who shoot it, for enemies dont kill each other
 #TODO: implement 2 enemies structure type and 1 boss
@@ -351,6 +353,30 @@ class Player:
             self.attacking_in_air = False
             self.attacking_on_ground = True
 
+    def attack_hitbox(self):
+        # Define hitbox depending of direction
+        if self.attack_dir == 'up':
+            atk_x = self.x + (self.w // 2 - self.attack_w // 2)
+            atk_y = self.y - self.attack_h
+            atk_w = self.attack_w
+            atk_h = self.attack_h
+        elif self.attack_dir == 'down':
+            atk_x = self.x + (self.w // 2 - self.attack_w // 2)
+            atk_y = self.y + self.h
+            atk_w = self.attack_w
+            atk_h = self.attack_h
+        else:  # side attack
+            if self.dir == 0:  # right
+                atk_x = self.x + self.w
+            else:  # left
+                atk_x = self.x - self.attack_w
+            atk_y = self.y + 2
+            atk_w = self.attack_w
+            atk_h = self.attack_h
+
+        return atk_x, atk_y, atk_w, atk_h
+
+
     def try_shoot(self, projectiles:list):
         if not self.shoot_unlocked:
             return
@@ -561,7 +587,7 @@ def porta_trigger(player):
 
 # ---------- ENEMIES ----------
 class Enemy:
-    def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15, max_hp=1,damage=1,speed=1,knockback=4):
+    def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15, max_hp=3,damage=1,speed=1,knockback=4):
         self.x = x
         self.y = y
         self.w = w
@@ -589,7 +615,16 @@ class Enemy:
         self.max_fall = 3
         self.on_ground = False
 
-        #implement speed and knockback
+        #invencibility
+        self.invincible_timer = 0
+        self.invincible_duration = 20  # frames de invencibilidade
+        self.flasher = 0
+        self.flipper = 0
+        self.flipper_speed = 4
+        self.flipper_t = 0
+        self.stun_timer = 0
+        self.stun_duration = 5
+        self.side_force = 3
     
     # abstract methods
     def move_behavior(self,player: Player):
@@ -597,6 +632,25 @@ class Enemy:
 
     def on_player_collision(self,player: Player):
         pass
+
+    def check_player_attack(self, player: Player):
+        #just verify if player attacks
+        if player.attack_timer <= 0:
+            return
+        
+        if self.invincible_timer > 0:
+            return
+        
+        atk_x, atk_y, atk_w, atk_h = player.attack_hitbox()
+
+        #check hitbox on enemy
+        if self.x < atk_x + atk_w and self.x + self.w > atk_x and self.y < atk_y + atk_h and self.y + self.h > atk_y:
+            # apply damage
+            self.take_damage(1, source=player)
+            # apply recoil on enemy
+            recoil(self, player.x + player.w / 2, player.y + player.h / 2, side_force=self.side_force, up_force=-3)
+            self.invincible_timer = self.invincible_duration
+            self.stun_timer = self.stun_duration
 
     def is_dead(self):
         return self.hp<=0
@@ -609,10 +663,6 @@ class Enemy:
 
         if self.hp < 0:
             self.hp = 0
-
-        #future flicking
-
-        #future implementation of recoil
 
         #possible on_death actions
 
@@ -646,6 +696,38 @@ class Enemy:
                 self.vy = 0
                 self.y = ((top // 8) + 1) * 8
         
+    def move_friction(self):
+        old_x = self.x
+        self.x += self.vx  # move pelo vx atual
+
+        left = int(self.x)
+        right = int(self.x + self.w - 1)
+        top = int(self.y)
+        bottom = int(self.y + self.h - 1)
+
+        collided = False
+
+        # colisões laterais
+        if self.vx > 0 and (solid_tile_at(right, top) or solid_tile_at(right, bottom)):
+            collided = True
+        elif self.vx < 0 and (solid_tile_at(left, top) or solid_tile_at(left, bottom)):
+            collided = True
+
+        if collided:
+            self.x = old_x
+            self.vx = 0  # zera velocidade ao colidir
+
+        # aplica atrito para ir desacelerando
+        friction = 0.3  # ajuste conforme necessário
+        if self.vx > 0:
+            self.vx -= friction
+            if self.vx < 0:
+                self.vx = 0
+        elif self.vx < 0:
+            self.vx += friction
+            if self.vx > 0:
+                self.vx = 0
+
     def animate(self):
         self.t += 1
         if self.t % self.anim_speed == 0:
@@ -655,15 +737,21 @@ class Enemy:
         sx = self.w//8
         sy = self.h//8
         tiles_per_frame = sx
-        spr(
-            self.sprite_base + (self.frame*tiles_per_frame),
-            int(self.x - cam_x),
-            int(self.y - cam_y),
-            colorkey=0,
-            w=sx,
-            h=sy,
-            flip = self.facing
-        )
+
+        show_sprite = True
+        if self.invincible_timer > 0:
+            show_sprite = (self.invincible_timer % 4) < 2  # flicking
+        
+        if show_sprite:
+            spr(
+                self.sprite_base + (self.frame*tiles_per_frame),
+                int(self.x - cam_x),
+                int(self.y - cam_y),
+                colorkey=0,
+                w=sx,
+                h=sy,
+                flip = self.facing
+            )
     
     def check_collision_player(self, player):
         if self.x < player.x + player.w and self.x + self.w > player.x and self.y < player.y + player.h and self.y + self.h > player.y:
@@ -671,6 +759,22 @@ class Enemy:
         return False
     
     def update(self, cam_x, cam_y, player):
+        if self.invincible_timer > 0:
+            self.invincible_timer -= 1
+            self.flipper_t += 1
+            if self.flipper_t >= self.flipper_speed:
+                self.flipper = (self.flipper + 1) % 2  # alterna entre 0 e 1
+                self.flipper_t = 0
+
+        if self.stun_timer>0:
+            self.stun_timer-=1
+            #don't make move behavior
+            self.apply_gravity()  # ainda aplica gravidade
+            self.move_friction()
+            self.animate()
+            self.draw(cam_x, cam_y)
+            return
+
         self.apply_gravity()
         self.move_behavior(player)
         self.animate()
@@ -678,9 +782,11 @@ class Enemy:
 
         if self.check_collision_player(player):
             self.on_player_collision(player)
+        
+        self.check_player_attack(player)
 
 class Patrol(Enemy):
-    def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15, max_hp=1, damage=1, speed=1, knockback=4, patrol_range=80):
+    def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15, max_hp=3, damage=1, speed=1, knockback=4, patrol_range=80):
         super().__init__(x, y, w, h, sprite_base, frame_max, anim_speed, max_hp, damage, speed, knockback)
         self.dir = 1 if patrol_range>=0 else -1
         self.start_x = x
@@ -725,14 +831,19 @@ class Patrol(Enemy):
             self.x = old_x
             self.dir = 1
 
+    def on_player_collision(self, player):
+        if player.invincible_timer==0:
+            player.take_damage(self.damage,self.x,self.y,self.knockback)
+
 
 class Stalker(Enemy):
-    def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15, max_hp=1, damage=1, speed=1, knockback=4):
+    def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15, max_hp=3, damage=1, speed=1, knockback=4):
         super().__init__(x, y, w, h, sprite_base, frame_max, anim_speed, max_hp, damage, speed, knockback)
 
         self.start_x = x
         self.start_y = y
         self.jump_force = -4
+        self.side_force = 5
 
     def reset(self):
         self.x = self.start_x
@@ -925,6 +1036,8 @@ def TIC():
         #update enemy
         for enemy in list(enemies):
             enemy.update(cam_x, cam_y, player)
+            if enemy.is_dead():
+                enemies.remove(enemy)
                     #recoil(enemy, player.x + player.w/2, player.y + player.h/2, force=1, up_force=-1)
             """remove enemy if is out of map
             if enemy.y > MAP_H or enemy.hp <= 0:
