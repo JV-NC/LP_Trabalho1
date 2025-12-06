@@ -8,7 +8,6 @@
 #TODO: fix double jump attack rotation
 #TODO: fix (or ignore) enemy flicking on_ground because of bad apply_gravity
 #TODO: implement Ghost Stalker
-#TODO: refactor patrol enemy for patrol distance
 #TODO: implement damage on enemies, no more hk
 #TODO: refactor attack for moving with recoil
 #TODO: refactor projectile 'damage' and create atribute 'owner' for knowing who shoot it, for enemies dont kill each other
@@ -681,31 +680,39 @@ class Enemy:
             self.on_player_collision(player)
 
 class Patrol(Enemy):
-    def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15, max_hp=1, damage=1, speed=1, knockback=1):
+    def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15, max_hp=1, damage=1, speed=1, knockback=4, patrol_range=80):
         super().__init__(x, y, w, h, sprite_base, frame_max, anim_speed, max_hp, damage, speed, knockback)
-        self.dir = 1
-        self.patrol_range = 105
+        self.dir = 1 if patrol_range>=0 else -1
+        self.start_x = x
+        self.patrol_range = abs(patrol_range)
 
     def move_behavior(self, player: Player):
-        self.facing = 0 if self.vx>=0 else 1
+        self.facing = 0 if self.dir > 0 else 1
         old_x = self.x
 
-        if abs(player.x - self.x) >self.patrol_range:
-            self.dir *=-1
+        # calculate distance from start
+        dist_from_start = self.x - self.start_x
 
+        # reverse if surpass patrol_range
+        if dist_from_start >= self.patrol_range and self.dir > 0:
+            self.dir = -1
+        elif dist_from_start <= self.patrol_range * -1 and self.dir < 0:
+            self.dir = 1
+
+        # define velocity
         self.vx = self.dir * self.speed
 
-        front_x = self.x + (self.vx > 0) * self.w
+        # verify floor ahead
+        front_x = self.x + (self.dir > 0) * self.w
         front_y = self.y + self.h
-        
-        #change direction if don't have ground
         if not solid_tile_at(front_x, front_y + 1):
-            self.vx *= -1
             self.dir *= -1
+            self.vx = self.dir * self.speed
 
+        # move enemy
         self.x += self.vx
 
-        #wall collision
+        # side collisions
         left = int(self.x)
         right = int(self.x + self.w - 1)
         top = int(self.y)
@@ -713,19 +720,14 @@ class Patrol(Enemy):
 
         if self.vx > 0 and (solid_tile_at(right, top) or solid_tile_at(right, bottom)):
             self.x = old_x
-            self.vx *= -1
-            self.dir *= -1
+            self.dir = -1
         elif self.vx < 0 and (solid_tile_at(left, top) or solid_tile_at(left, bottom)):
             self.x = old_x
-            self.vx *= -1
-            self.dir *= -1
+            self.dir = 1
 
-    def on_player_collision(self, player: Player):
-        if player.invincible_timer==0:
-            player.take_damage(self.damage,self.x,self.y,self.knockback)
 
 class Stalker(Enemy):
-    def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15, max_hp=1, damage=1, speed=1, knockback=1):
+    def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15, max_hp=1, damage=1, speed=1, knockback=4):
         super().__init__(x, y, w, h, sprite_base, frame_max, anim_speed, max_hp, damage, speed, knockback)
 
         self.start_x = x
@@ -845,7 +847,7 @@ player = Player(100, 60)
 
 enemies = [
      Patrol(200,100,16,32,320,speed=0.5),
-     Patrol(200,100,8,8,348),
+     Patrol(200,100,8,8,348,patrol_range=40),
      Stalker(16,104,8,8,364,speed=0.6,knockback=7)
 ]
 
