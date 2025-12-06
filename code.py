@@ -6,7 +6,7 @@
 # script:  python
 
 #TODO: fix double jump attack rotation
-#TODO: implement jump on Stalker enemies
+#TODO: fix (or ignore) enemy flicking on_ground because of bad apply_gravity
 #TODO: implement Ghost Stalker
 #TODO: refactor patrol enemy for patrol distance
 #TODO: implement damage on enemies, no more hk
@@ -672,8 +672,8 @@ class Enemy:
         return False
     
     def update(self, cam_x, cam_y, player):
-        self.move_behavior(player)
         self.apply_gravity()
+        self.move_behavior(player)
         self.animate()
         self.draw(cam_x, cam_y)
 
@@ -730,6 +730,7 @@ class Stalker(Enemy):
 
         self.start_x = x
         self.start_y = y
+        self.jump_force = -4
 
     def reset(self):
         self.x = self.start_x
@@ -756,9 +757,31 @@ class Stalker(Enemy):
         top = int(self.y)
         bottom = int(self.y + self.h - 1)
 
-        if (self.vx > 0 and (solid_tile_at(right, top) or solid_tile_at(right, bottom))) or (self.vx < 0 and (solid_tile_at(left, top) or solid_tile_at(left, bottom))):
+        collided = False
+        wall = False
+
+        #right collision
+        if self.vx > 0 and (solid_tile_at(right, top) or solid_tile_at(right, bottom)):
+            collided = True
+        
+        if self.vx < 0 and (solid_tile_at(left, top) or solid_tile_at(left, bottom)):
+            collided = True
+        
+        if self.vx > 0 and solid_tile_at(right, bottom):
+            wall = True
+        elif self.vx < 0 and solid_tile_at(left, bottom):
+            wall = True
+        else:
+            wall = False
+
+        if collided:
             self.x = old_x
             self.vx = 0
+        
+        #jump
+        if self.on_ground and wall:
+            self.vy = self.jump_force
+            self.on_ground = False
 
     def on_player_collision(self, player):
         if player.invincible_timer==0:
