@@ -5,17 +5,16 @@
 # version: 0.1
 # script:  python
 
-#TODO: fix double jump attack rotation
-#TODO: fix (or ignore) enemy flicking on_ground because of bad apply_gravity
-#TODO: fix Patrol Enemy for 'real' patrol_range funcionality, if have time
 #TODO: fix create init function to call on restart
 #TODO: implement Ghost Stalker
-#TODO: implement projectile damage on enemies
-#TODO: refactor projectile 'damage' and create atribute 'owner' for knowing who shoot it, for enemies dont kill each other
 #TODO: implement 2 enemies structure type and 1 boss
 #TODO: draw better menu and gameover screen
 #TODO: fix interactables for working as chest and doors with keys
 #TODO: implement drop and collect keys
+#TODO: test and try different attributes for player and enemies for better game pacing
+#TODO: fix double jump attack rotation
+#TODO: fix (or ignore) enemy flicking on_ground because of bad apply_gravity
+#TODO: fix Patrol Enemy for 'real' patrol_range funcionality, if have time
 
 
 import random
@@ -124,6 +123,7 @@ class Player:
         self.shoot_speed = 4
         self.shoot_distance = 80
         self.rotation_time=0
+        self.projectile_damage = 2
 
     # HORIZONTAL MOVEMENT AND SIDE COLLISION
     def move_horizontal(self):
@@ -405,7 +405,7 @@ class Player:
 
         py = self.y+self.h//2 - self.shoot_h//2
 
-        projectile = Projectile(px,py,self.dir,self.shoot_sprite,speed=self.shoot_speed,max_dist=self.shoot_distance,w=self.shoot_w,h=self.shoot_h,rotation_time=self.rotation_time)
+        projectile = Projectile(px,py,self.dir,self.shoot_sprite,speed=self.shoot_speed,max_dist=self.shoot_distance,w=self.shoot_w,h=self.shoot_h,rotation_time=self.rotation_time,owner='player',damage=self.projectile_damage)
 
         projectiles.append(projectile)
 
@@ -522,7 +522,7 @@ class Player:
 
 # PROJECTILE
 class Projectile:
-    def __init__(self, x, y, dir, sprite, speed=3, max_dist=120, w=8, h=8, rotation_time=0):
+    def __init__(self, x, y, dir, sprite, speed=3, max_dist=120, w=8, h=8, rotation_time=0,owner: str='player', damage=1):
         self.x = x
         self.y = y
         self.dir = dir   # 0 = direita / 1 = esquerda
@@ -537,6 +537,9 @@ class Projectile:
         self.rotation_time = rotation_time
         self.rotation_timer = 0
         self.rotation_frame = 0
+
+        self.damage = damage
+        self.owner = owner
     
     def move(self):
         if self.dir == 0:
@@ -660,6 +663,26 @@ class Enemy:
                 recoil(player,self.x,self.y,side_force=0,up_force=4)
             elif player.attack_dir=='down':
                 recoil(player,self.x,self.y,side_force=0,up_force=-6)
+
+    def check_player_projectile(self, player: Player, projectiles : list[Projectile]):
+        for proj in list(projectiles):
+            if proj.owner != 'player':
+                continue
+            
+            #check colision
+            if self.x < proj.x + proj.w and self.x + self.w > proj.x and self.y < proj.y + proj.h and self.y + self.h > proj.y:
+                if self.invincible_timer > 0:
+                    continue
+
+                #hit projectile
+                self.take_damage(proj.damage, source=player)
+                self.stun_timer = self.stun_duration
+                self.invincible_timer = self.invincible_duration
+
+                recoil(self, proj.x, proj.y, side_force=self.side_force, up_force=-3)
+
+                if proj in projectiles:
+                    projectiles.remove(proj)
 
     def is_dead(self):
         return self.hp<=0
@@ -1019,40 +1042,20 @@ def TIC():
         player.try_shoot(projectiles)
 
         #update projectiles
-        to_remove = []
         for proj in projectiles:
             proj.move()
 
-            if proj.hit_solid():
-                to_remove.append(proj)
+            if proj.hit_solid() or proj.dead():
+                projectiles.remove(proj)
                 continue
-
-            for enemy in enemies:
-                if(proj.x < enemy.x + enemy.w and proj.x + proj.w > enemy.x and proj.y < enemy.y + enemy.h and proj.y + proj.h > enemy.y):
-                    to_remove.append(proj)
-                    enemies.remove(enemy)
-                    break
-            
-            if proj.dead():
-                to_remove.append(proj)
-            
             proj.draw(cam_x, cam_y)
-
-        for p in to_remove:
-            if p in projectiles:
-                projectiles.remove(p)
 
         #update enemy
         for enemy in list(enemies):
             enemy.update(cam_x, cam_y, player)
+            enemy.check_player_projectile(player, projectiles)
             if enemy.is_dead():
                 enemies.remove(enemy)
-                    #recoil(enemy, player.x + player.w/2, player.y + player.h/2, force=1, up_force=-1)
-            """remove enemy if is out of map
-            if enemy.y > MAP_H or enemy.hp <= 0:
-                if enemy in enemies:
-                    enemies.remove(enemy)
-            """
 
         #fall from map
         if player.y > MAP_H:
