@@ -8,7 +8,7 @@
 #TODO: implement Ghost Stalker
 #TODO: implement 2 enemies structure type and 1 boss
 #TODO: draw better menu and gameover screen
-#TODO: fix interactables collision for projectile and enemies collision
+#TODO: fix interactables collision for enemies
 #TODO: implement drop and collect keys
 #TODO: test and try different attributes for player and enemies for better game pacing
 #TODO: fix double jump attack rotation
@@ -36,6 +36,13 @@ def recoil(target, causer_x, causer_y, side_force=2,up_force=-2):
 #verify overlap
 def aabb(a,b):
     return (a.x < b.x + b.w and a.x + a.w > b.x and a.y < b.y + b.h and a.y + a.h > b.y)
+
+def collide_interactables(entity, interactables):
+    for obj in interactables:
+        if obj.solid:
+            if (entity.x < obj.x + obj.w and entity.x + entity.w > obj.x and entity.y < obj.y + obj.h and entity.y + entity.h > obj.y):
+                return True
+    return False
 
 class Player:
     def __init__(self, x, y):
@@ -1143,7 +1150,7 @@ def TIC():
         for proj in projectiles:
             proj.move()
 
-            if proj.hit_solid() or proj.dead():
+            if proj.hit_solid() or collide_interactables(proj,interactables) or proj.dead():
                 projectiles.remove(proj)
                 continue
             proj.draw(cam_x, cam_y)
