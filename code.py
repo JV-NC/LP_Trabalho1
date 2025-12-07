@@ -8,7 +8,7 @@
 #TODO: implement Ghost Stalker
 #TODO: implement 2 enemies structure type and 1 boss
 #TODO: draw better menu and gameover screen
-#TODO: fix interactables for projectile collision
+#TODO: fix interactables collision for projectile and enemies collision
 #TODO: implement drop and collect keys
 #TODO: test and try different attributes for player and enemies for better game pacing
 #TODO: fix double jump attack rotation
@@ -137,23 +137,17 @@ class Player:
             if not aabb(self, obj):
                 continue
 
-            # --- NOVO: ignorar colisão horizontal se player está em cima ---
+            # Ignorar colisão horizontal se o player está em cima do objeto
             player_bottom = self.y + self.h
             obj_top = obj.y
-
-            # tolerância de 1 pixel (TIC-80 costuma precisar)
             if abs(player_bottom - obj_top) <= 1:
-                # Está apoiado no topo: NÃO empurra lateralmente
-                continue
-            # ---------------------------------------------------------------
+                continue  # player está apoiado no topo, não empurra lateralmente
 
-            # Moveu para a direita
-            if self.vx > 0:
+            # Colisão horizontal normal
+            if self.vx > 0:  # moveu para a direita
                 self.x = obj.x - self.w
                 self.vx = 0
-            
-            # Moveu para a esquerda
-            elif self.vx < 0:
+            elif self.vx < 0:  # moveu para a esquerda
                 self.x = obj.x + obj.w
                 self.vx = 0
 
@@ -164,7 +158,7 @@ class Player:
             if not aabb(self, obj):
                 continue
 
-            # Caiu e bateu no topo do objeto
+            # Apenas colisão ao cair sobre o objeto
             if self.vy > 0:
                 self.y = obj.y - self.h
                 self.vy = 0
@@ -172,11 +166,6 @@ class Player:
                 self.jump_timer = 0
                 self.djump_timer = 0
                 self.djump_used = False
-
-            # Pulou e bateu embaixo do objeto
-            elif self.vy < 0:
-                self.y = obj.y + obj.h
-                self.vy = 0
 
     # HORIZONTAL MOVEMENT AND SIDE COLLISION
     def move_horizontal(self):
@@ -660,18 +649,20 @@ class Interactable:
         spr(self.sprite, int(self.x - cam_x), int(self.y - cam_y), 
             colorkey=0, scale=1, rotate=0, w=self.w//8, h=self.h//8)
 
-
-
 def door_trigger(player, interactable):
     trace("Porta abriu!")
+    door_opened_sprite = 192
     interactable.solid = False
+    interactable.sprite = door_opened_sprite
 
 def door_req(num):
     return lambda player: getattr(player, 'door_keys')>=num
 
 def chest_trigger(player,interactable):
     trace("Chest opened")
+    chest_opened_sprite = 236
     interactable.solid = False
+    interactable.sprite = chest_opened_sprite
 
 def chest_req(num):
     return lambda player: getattr(player,'chest_keys')>=num
@@ -1097,9 +1088,12 @@ def init_game():
 
     projectiles = []
 
+    chest_closed_sprite = 204
+    door_closed_sprite = 206
+
     interactables = [
-        Interactable(232, 88, 16, 32, 34, door_trigger, door_req(1)),
-        Interactable(7*8, 13*8, 16, 16, 32, chest_trigger, chest_req(1))
+        Interactable(232, 88, 16, 32, door_closed_sprite, door_trigger, door_req(1)),
+        Interactable(7*8, 13*8, 16, 16, chest_closed_sprite, chest_trigger, chest_req(1))
     ]
 
     death_timer = 0
@@ -1135,6 +1129,11 @@ def TIC():
             -(cam_x % T),
             -(cam_y % T)
         )
+
+        #draw interactables
+        for inter in interactables:
+            inter.draw(cam_x,cam_y)
+
         #update player
         player.update(cam_x, cam_y,interactables)
         player.try_interact(interactables)
@@ -1148,9 +1147,6 @@ def TIC():
                 projectiles.remove(proj)
                 continue
             proj.draw(cam_x, cam_y)
-
-        for inter in interactables:
-            inter.draw(cam_x,cam_y)
 
         #update enemy
         for enemy in list(enemies):
