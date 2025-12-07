@@ -5,7 +5,6 @@
 # version: 0.1
 # script:  python
 
-#TODO: fix create init function to call on restart
 #TODO: implement Ghost Stalker
 #TODO: implement 2 enemies structure type and 1 boss
 #TODO: draw better menu and gameover screen
@@ -1005,6 +1004,25 @@ death_timer = 0
 
 music_started = False
 
+def init_game():
+    global player, enemies, projectiles, interactables, death_timer, music_started
+
+    player = Player(100, 60)
+
+    enemies = [
+        Patrol(200,100,16,32,320,speed=0.5),
+        Patrol(200,100,8,8,348,patrol_range=40),
+        Stalker(16,104,8,8,364,speed=0.6,knockback=7)
+    ]
+
+    projectiles = []
+
+    interactables = [
+        Interactable(150, 80, 16, 16, porta_trigger),
+    ]
+
+    death_timer = 0
+    music_started = False
 
 
 def TIC():
@@ -1019,7 +1037,7 @@ def TIC():
         draw_menu()
         # SPACE = começar jogo
         if btn(4) or key(48):  # botão 'A' do TIC-80
-            player = Player(100, 60)
+            init_game()
             GAME_STATE = "game"
         return
 
