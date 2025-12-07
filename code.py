@@ -8,7 +8,7 @@
 #TODO: implement Ghost Stalker
 #TODO: implement 2 enemies structure type and 1 boss
 #TODO: draw better menu and gameover screen
-#TODO: fix interactables better collision and projectile collision
+#TODO: fix interactables for projectile collision
 #TODO: implement drop and collect keys
 #TODO: test and try different attributes for player and enemies for better game pacing
 #TODO: fix double jump attack rotation
@@ -130,23 +130,53 @@ class Player:
         self.rotation_time=0
         self.projectile_damage = 2
 
-    def collide_interactables(self, interactables):
+    def collide_interactables_horizontal(self, interactables):
         for obj in interactables:
-            if obj.solid:
-                if aabb(self, obj):   #uses aabb to pushes player out of interactable
-                    if self.vx > 0:  # hitting right
-                        self.x = obj.x - self.w
-                    elif self.vx < 0:  # hitting left
-                        self.x = obj.x + obj.w
+            if not obj.solid:
+                continue
+            if not aabb(self, obj):
+                continue
 
-                    if self.vy > 0:  # hitting up
-                        self.y = obj.y - self.h
-                        self.vy = 0
-                        self.on_ground = True
+            # --- NOVO: ignorar colisão horizontal se player está em cima ---
+            player_bottom = self.y + self.h
+            obj_top = obj.y
 
-                    elif self.vy < 0:  # hitting down
-                        self.y = obj.y + obj.h
-                        self.vy = 0
+            # tolerância de 1 pixel (TIC-80 costuma precisar)
+            if abs(player_bottom - obj_top) <= 1:
+                # Está apoiado no topo: NÃO empurra lateralmente
+                continue
+            # ---------------------------------------------------------------
+
+            # Moveu para a direita
+            if self.vx > 0:
+                self.x = obj.x - self.w
+                self.vx = 0
+            
+            # Moveu para a esquerda
+            elif self.vx < 0:
+                self.x = obj.x + obj.w
+                self.vx = 0
+
+    def collide_interactables_vertical(self, interactables):
+        for obj in interactables:
+            if not obj.solid:
+                continue
+            if not aabb(self, obj):
+                continue
+
+            # Caiu e bateu no topo do objeto
+            if self.vy > 0:
+                self.y = obj.y - self.h
+                self.vy = 0
+                self.on_ground = True
+                self.jump_timer = 0
+                self.djump_timer = 0
+                self.djump_used = False
+
+            # Pulou e bateu embaixo do objeto
+            elif self.vy < 0:
+                self.y = obj.y + obj.h
+                self.vy = 0
 
     # HORIZONTAL MOVEMENT AND SIDE COLLISION
     def move_horizontal(self):
@@ -537,7 +567,8 @@ class Player:
     # Gather all update methods
     def update(self, cam_x, cam_y, interactables):
         self.move()
-        self.collide_interactables(interactables)
+        self.collide_interactables_horizontal(interactables)
+        self.collide_interactables_vertical(interactables)
         self.try_attack()
         self.set_state()
         self.animate()
@@ -1068,7 +1099,7 @@ def init_game():
 
     interactables = [
         Interactable(232, 88, 16, 32, 34, door_trigger, door_req(1)),
-        Interactable(200, 120, 16, 16, 404, chest_trigger, chest_req(1))
+        Interactable(7*8, 13*8, 16, 16, 32, chest_trigger, chest_req(1))
     ]
 
     death_timer = 0
