@@ -662,7 +662,7 @@ class Interactable:
             colorkey=0, scale=1, rotate=0, w=self.w//8, h=self.h//8)
 
 def door_trigger(player, interactable):
-    trace("Porta abriu!")
+    player.door_keys+=1
     door_opened_sprite = 192
     interactable.solid = False
     interactable.sprite = door_opened_sprite
@@ -671,7 +671,6 @@ def door_req(num):
     return lambda player: getattr(player, 'door_keys')>=num
 
 def chest_trigger(player,interactable):
-    trace("Chest opened")
     chest_opened_sprite = 236
     interactable.solid = False
     interactable.sprite = chest_opened_sprite
