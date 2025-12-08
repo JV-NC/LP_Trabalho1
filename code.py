@@ -26,7 +26,7 @@ def recoil(target, causer_x, causer_y, side_force=2,up_force=-2):
     dx = tx - causer_x
     #if 0, push to right
     if dx == 0:
-        dir_sign = 1 if getattr(target, "vx", 0) >= 0 else -1
+        dir_sign = 1 if getattr(target, "vx") >= 0 else -1
     else:
         dir_sign = 1 if dx > 0 else -1
 
