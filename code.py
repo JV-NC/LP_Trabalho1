@@ -345,6 +345,10 @@ class Player:
         if key(8):
             self.hp = self.max_hp
 
+    def cheat_more_health(self):
+        if key(10):
+            self.max_hp = 10
+            self.hp = self.max_hp
     # TAKE DAMAGE
     def take_damage(self,amount,causer_x,causer_y,knockback=3, i_frames=None):
         if self.invincible_timer>0:
@@ -590,6 +594,7 @@ class Player:
         player.try_interact(interactables)
         player.try_shoot(projectiles)
         self.cheat_full_health()
+        self.cheat_more_health()
         self.try_attack()
         self.set_state()
         self.animate()
