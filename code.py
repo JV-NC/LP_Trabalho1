@@ -1260,23 +1260,100 @@ def get_camera(player):
     return int(cam_x), int(cam_y)
 
 # ---------- GAME SCREENS ----------
+def center_x(text, scale, screen_w=240):
+    char_w = 5
+    width = len(text) * char_w * scale
+    return int(screen_w/2 - width/2)
 
-def draw_menu():
+menu_t = 0
+
+def draw_menu(player):
+    global menu_t
+    menu_t+=1
     cls()
-    title = "TIC GAME"
-    start = "PRESSIONE 'PULO' PARA JOGAR"
 
-    # centraliza automaticamente
-    print(title, 240//2 - (len(title)*4)//2, 40, 15, False, 2)
-    print(start, 240//2 - (len(start)*4)//2, 80, 12, False, 1)
+    bg_tile = 176
+    tile_w = 1
+    tile_h = 1
+    WHITE = 12
+    BLACK = 15
+
+    #DRAW BG TILES
+    for ty in range(0,136,tile_h):
+        for tx in range(0,240,tile_w):
+            spr(bg_tile,tx,ty,colorkey=0,w=tile_w,h=tile_h)
+
+    #TITLE
+    title = "COLISEU RUN"
+    title_scale = 2
+    title_x = center_x(title, title_scale)
+    title_y = 20
+    print(title, title_x, title_y, WHITE, False, title_scale)
+
+    #PLAYER ANIMATION
+    anim_state = player.animations['sleep']
+
+    frame = (menu_t//anim_state['speed'])%anim_state['frames']
+    sprite_id = anim_state['start'] + frame * 2
+
+    #DRAW PLAYER WITH SCALE
+    px = 240//2 - (16*3)//2
+    py = 68
+    spr(sprite_id, px, py, colorkey=0, scale=3, flip=0, w=2, h=2)
+
+    #START MSG
+    msg = "PRESS 'SPACE' TO PLAY"
+    msg_scale = 1
+    msg_x = center_x(msg, msg_scale)
+    msg_y = py + 16*3 + 12
+
+    # blink every 20 frames
+    if (menu_t//20)%2==0:
+        print(msg, msg_x, msg_y, WHITE, False, 1)
 
 def draw_game_over():
+    global menu_t
+    menu_t += 1
     cls()
-    msg = "VOCE MORREU!"
-    retry = "PRESSIONE 'E' PARA RECOMEÇAR"
 
-    print(msg, 240//2 - (len(msg)*4)//2, 40, 14, False, 2)
-    print(retry, 240//2 - (len(retry)*4)//2, 80, 12, False, 1)
+    bg_tile = 176
+    tile_w = 1
+    tile_h = 1
+    WHITE = 12
+    RED = 14
+
+    #DRAW BG
+    for ty in range(0, 136, tile_h):
+        for tx in range(0, 240, tile_w):
+            spr(bg_tile, tx, ty, colorkey=0, w=tile_w, h=tile_h)
+    
+    #TITLE
+    title = "YOU DIED!"
+    title_scale = 2
+    title_x = center_x(title, title_scale)
+    title_y = 20
+    print(title, title_x, title_y, WHITE, False, title_scale)
+
+    #DEAD SPRITE
+    sprite_id = 308
+    scale = 3
+    w = 2 * 8 * scale   # largura real
+    h = 1 * 8 * scale   # altura real
+
+    px = int(240/2 - w/2)
+    py = 60
+
+    spr(sprite_id, px, py, colorkey=0, scale=scale, w=2, h=1)
+
+    #RESTART MSG
+    msg = "PRESS 'E' TO RESTART"
+    msg_scale = 1
+    msg_x = center_x(msg, msg_scale)
+    msg_y = py + h + 16
+
+    # blink every 20 frames
+    if (menu_t // 20) % 2 == 0:
+        print(msg, msg_x, msg_y, WHITE, False, msg_scale)
 
 #GLOBALS
 
@@ -1369,7 +1446,7 @@ def TIC():
         music_started = True
 
     if GAME_STATE == "menu":
-        draw_menu()
+        draw_menu(player)
         # SPACE = começar jogo
         if btn(4) or key(48):  # botão 'A' do TIC-80
             init_game()
