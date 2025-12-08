@@ -5,11 +5,10 @@
 # version: 0.1
 # script:  python
 
-#TODO: fix create init function to call on restart
 #TODO: implement Ghost Stalker
 #TODO: implement 2 enemies structure type and 1 boss
 #TODO: draw better menu and gameover screen
-#TODO: fix interactables for working as chest and doors with keys
+#TODO: fix interactables collision for enemies
 #TODO: implement drop and collect keys
 #TODO: test and try different attributes for player and enemies for better game pacing
 #TODO: fix double jump attack rotation
@@ -33,6 +32,17 @@ def recoil(target, causer_x, causer_y, side_force=2,up_force=-2):
 
     # Aply vertical push upwards
     target.vy = up_force
+
+#verify overlap
+def aabb(a,b):
+    return (a.x < b.x + b.w and a.x + a.w > b.x and a.y < b.y + b.h and a.y + a.h > b.y)
+
+def collide_interactables(entity, interactables):
+    for obj in interactables:
+        if obj.solid:
+            if (entity.x < obj.x + obj.w and entity.x + entity.w > obj.x and entity.y < obj.y + obj.h and entity.y + entity.h > obj.y):
+                return True
+    return False
 
 class Player:
     def __init__(self, x, y):
@@ -98,6 +108,8 @@ class Player:
         self.interact_timer = 0
         self.interact_duration = 12
         self.can_move = True
+        self.door_keys = 1
+        self.chest_keys = 1
 
         #attack
         self.attack_timer = 0
@@ -124,6 +136,43 @@ class Player:
         self.shoot_distance = 80
         self.rotation_time=0
         self.projectile_damage = 2
+
+    def collide_interactables_horizontal(self, interactables):
+        for obj in interactables:
+            if not obj.solid:
+                continue
+            if not aabb(self, obj):
+                continue
+
+            # Ignorar colisão horizontal se o player está em cima do objeto
+            player_bottom = self.y + self.h
+            obj_top = obj.y
+            if abs(player_bottom - obj_top) <= 1:
+                continue  # player está apoiado no topo, não empurra lateralmente
+
+            # Colisão horizontal normal
+            if self.vx > 0:  # moveu para a direita
+                self.x = obj.x - self.w
+                self.vx = 0
+            elif self.vx < 0:  # moveu para a esquerda
+                self.x = obj.x + obj.w
+                self.vx = 0
+
+    def collide_interactables_vertical(self, interactables):
+        for obj in interactables:
+            if not obj.solid:
+                continue
+            if not aabb(self, obj):
+                continue
+
+            # Apenas colisão ao cair sobre o objeto
+            if self.vy > 0:
+                self.y = obj.y - self.h
+                self.vy = 0
+                self.on_ground = True
+                self.jump_timer = 0
+                self.djump_timer = 0
+                self.djump_used = False
 
     # HORIZONTAL MOVEMENT AND SIDE COLLISION
     def move_horizontal(self):
@@ -321,12 +370,11 @@ class Player:
         self.frame = 0
         self.t = 0
 
-        # procurar interagível em colisão
+        # search for nearest interactable on players direction
         for obj in interactibles:
-            if obj.check_collision(self):
-                # checa requisito (se tiver)
+            if obj.check_interact_area(self):
                 if obj.req is None or obj.req(self):
-                    obj.trigger(self)
+                    obj.trigger(self,obj)
                 return
 
     def try_attack(self):
@@ -513,8 +561,10 @@ class Player:
                 spr(self.attack_sprite,int(atk_x - cam_x),int(atk_y - cam_y),colorkey=0,scale=1,flip=self.dir,rotate=0,w=2,h=2)
 
     # Gather all update methods
-    def update(self, cam_x, cam_y):
+    def update(self, cam_x, cam_y, interactables):
         self.move()
+        self.collide_interactables_horizontal(interactables)
+        self.collide_interactables_vertical(interactables)
         self.try_attack()
         self.set_state()
         self.animate()
@@ -577,19 +627,52 @@ class Projectile:
 
 # INTERACTABLE
 class Interactable:
-    def __init__(self, x, y, w, h, trigger, req=None):
-        self.x = x
-        self.y = y
-        self.w = w
-        self.h = h
-        self.trigger = trigger   # função a ser chamada
-        self.req = req           # requisito opcional (ex: chave)
-    
-    def check_collision(self, player):
-        return (self.x < player.x + player.w and self.x + self.w > player.x and self.y < player.y + player.h and self.y + self.h > player.y)
+    def __init__(self, x, y, w, h, sprite, trigger, req=None, solid=True):
+            self.x = x
+            self.y = y
+            self.w = w
+            self.h = h
+            self.sprite = sprite     # base sprite
+            self.trigger = trigger   # trigger function on interaction
+            self.req = req           # optional requirement (ex: key)
+            self.solid = solid
 
-def porta_trigger(player):
+    def check_interact_area(self, player):
+        RANGE = 10  # max distance for interaction
+
+        if player.dir == 0:  # looking right
+            ix = player.x + player.w
+            iy1 = player.y
+            iy2 = player.y + player.h
+            return (ix + RANGE > self.x and ix < self.x + self.w and iy2 > self.y and iy1 < self.y + self.h)
+
+        else:  # looking left
+            ix = player.x
+            iy1 = player.y
+            iy2 = player.y + player.h
+            return (ix - RANGE < self.x + self.w and ix > self.x and iy2 > self.y and iy1 < self.y + self.h)
+        
+    def draw(self, cam_x, cam_y):
+        spr(self.sprite, int(self.x - cam_x), int(self.y - cam_y), 
+            colorkey=0, scale=1, rotate=0, w=self.w//8, h=self.h//8)
+
+def door_trigger(player, interactable):
     trace("Porta abriu!")
+    door_opened_sprite = 192
+    interactable.solid = False
+    interactable.sprite = door_opened_sprite
+
+def door_req(num):
+    return lambda player: getattr(player, 'door_keys')>=num
+
+def chest_trigger(player,interactable):
+    trace("Chest opened")
+    chest_opened_sprite = 236
+    interactable.solid = False
+    interactable.sprite = chest_opened_sprite
+
+def chest_req(num):
+    return lambda player: getattr(player,'chest_keys')>=num
 
 # ---------- ENEMIES ----------
 class Enemy:
@@ -986,25 +1069,42 @@ T = 8
 def rand(a, b):
     return random.randint(a, b) 
 
-player = Player(100, 60)
+player = Player(0, 0)
 
-enemies = [
-     Patrol(200,100,16,32,320,speed=0.5),
-     Patrol(200,100,8,8,348,patrol_range=40),
-     Stalker(16,104,8,8,364,speed=0.6,knockback=7)
-]
+enemies = []
 
 projectiles = []
 
-interactables = [
-    Interactable(150, 80, 16, 16, porta_trigger),
-]
+interactables = []
 
 GAME_STATE = "menu"
 death_timer = 0
 
 music_started = False
 
+def init_game():
+    global player, enemies, projectiles, interactables, death_timer, music_started
+
+    player = Player(0, 100)
+
+    enemies = [
+        Patrol(200,100,16,32,320,speed=0.5),
+        Patrol(200,100,8,8,348,patrol_range=40),
+        Stalker(16,104,8,8,364,speed=0.6,knockback=7)
+    ]
+
+    projectiles = []
+
+    chest_closed_sprite = 204
+    door_closed_sprite = 206
+
+    interactables = [
+        Interactable(232, 88, 16, 32, door_closed_sprite, door_trigger, door_req(1)),
+        Interactable(7*8, 13*8, 16, 16, chest_closed_sprite, chest_trigger, chest_req(1))
+    ]
+
+    death_timer = 0
+    music_started = False
 
 
 def TIC():
@@ -1019,7 +1119,7 @@ def TIC():
         draw_menu()
         # SPACE = começar jogo
         if btn(4) or key(48):  # botão 'A' do TIC-80
-            player = Player(100, 60)
+            init_game()
             GAME_STATE = "game"
         return
 
@@ -1036,8 +1136,13 @@ def TIC():
             -(cam_x % T),
             -(cam_y % T)
         )
+
+        #draw interactables
+        for inter in interactables:
+            inter.draw(cam_x,cam_y)
+
         #update player
-        player.update(cam_x, cam_y)
+        player.update(cam_x, cam_y,interactables)
         player.try_interact(interactables)
         player.try_shoot(projectiles)
 
@@ -1045,7 +1150,7 @@ def TIC():
         for proj in projectiles:
             proj.move()
 
-            if proj.hit_solid() or proj.dead():
+            if proj.hit_solid() or collide_interactables(proj,interactables) or proj.dead():
                 projectiles.remove(proj)
                 continue
             proj.draw(cam_x, cam_y)
