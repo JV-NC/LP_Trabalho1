@@ -1061,6 +1061,159 @@ class Stalker(Enemy):
         if player.invincible_timer==0:
             player.take_damage(self.damage,self.x,self.y,self.knockback)
 
+
+
+class FlyingStalker(Enemy):
+    def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15,
+                 max_hp=3, damage=1, speed=1, knockback=4):
+        super().__init__(x, y, w, h, sprite_base, frame_max, anim_speed,
+                         max_hp, damage, speed, knockback)
+
+        # desliga física de solo
+        self.gravity = 0
+        self.max_fall = 0
+        self.on_ground = False
+
+    def apply_gravity(self):
+        # NÃO FAZ NADA — voador não tem gravidade
+        pass
+
+    def move_friction(self):
+        # NÃO FAZ NADA — voador não tem colisão nem atrito
+        self.x += self.vx
+        self.y += self.vy
+
+    def move_behavior(self, player):
+        # segue o player nos dois eixos
+        dx = player.x - self.x
+        dy = player.y - self.y
+
+        # normaliza direção (pra não voar super rápido na diagonal)
+        mag = (dx*dx + dy*dy)**0.5
+        if mag != 0:
+            dx /= mag
+            dy /= mag
+
+        # aplica velocidade
+        self.vx = dx * self.speed
+        self.vy = dy * self.speed
+
+        # orientação horizontal (opcional)
+        self.facing = 0 if self.vx >= 0 else 1
+
+        # move sem colisões
+        self.x += self.vx
+        self.y += self.vy
+
+    def on_player_collision(self, player):
+        if player.invincible_timer == 0:
+            player.take_damage(self.damage, self.x, self.y, self.knockback)
+
+class BossFinal(Enemy):
+    def __init__(self, x, y):
+        super().__init__(
+            x, y,
+            32, 64,       # tamanho (2 blocos de 32x32 = 32x64)
+            384,          # sprite_base (canto sup ESQUERDO)
+            frame_max=1,  # sem animação por frame (você pode mudar depois)
+            anim_speed=10,
+            max_hp=40,    # vida alta, ajuste se quiser
+            damage=2,
+            speed=0.3,    # bem mais lento que inimigos normais
+            knockback=6
+        )
+
+        # tiro
+        self.shoot_timer = 0
+        self.shoot_delay = 90   # frames entre tiros (ajusta se quiser)
+        self.projectile_sprite = 303
+        self.projectile_speed = 2
+        self.projectile_damage = 1
+        self.active = True  # flag pra ligar/desligar o boss facilmente
+
+    def move_behavior(self, player: Player):
+        if not self.active:
+            self.vx = 0
+            return
+
+        # --- perseguir no eixo X (lento) ---
+        if player.x > self.x:
+            self.vx = self.speed
+            self.facing = 0
+        elif player.x < self.x:
+            self.vx = -self.speed
+            self.facing = 1
+        else:
+            self.vx = 0
+
+        # --- limita velocidade (segurança) ---
+        if self.vx > self.speed:
+            self.vx = self.speed
+        if self.vx < -self.speed:
+            self.vx = -self.speed
+
+        # --- garantir movimento mesmo se Enemy.update esquecer move_friction() ---
+        # (move_friction() também será chamada pelo Enemy.update() se estiver correto)
+        self.move_friction()
+
+        # --- gerenciamento de tiro ---
+        self.shoot_timer += 1
+        if self.shoot_timer >= self.shoot_delay:
+            self.shoot_timer = 0
+            self.shoot(player)
+
+    def shoot(self, player: Player):
+        # só atira se estiver ativo
+        if not self.active:
+            return
+
+        # direção horizontal baseada no player
+        dir_flag = 0 if player.x > self.x else 1  # 0 => direita, 1 => esquerda
+
+        # spawn do projétil um pouco fora do corpo do boss (evita colidir com ele mesmo)
+        spawn_x = int(self.x + (self.w // 2) - 4)
+        spawn_y = int(self.y + (self.h // 2) - 4)
+
+        # cria projétil compatível com seu construtor
+        projectiles.append(
+            Projectile(
+                spawn_x,                 # x
+                spawn_y,                 # y
+                dir_flag,                # dir (0 direita / 1 esquerda)
+                self.projectile_sprite,  # sprite
+                speed=self.projectile_speed,
+                max_dist=200,            # alcance, ajuste se quiser
+                w=8,                     # largura do projétil
+                h=8,
+                rotation_time=0,
+                owner="boss",
+                damage=self.projectile_damage
+            )
+        )
+
+    def on_player_collision(self, player: Player):
+        # segue padrão dos outros inimigos: só causa dano se player não estiver invencível
+        if player.invincible_timer == 0:
+            player.take_damage(
+                self.damage,
+                self.x,
+                self.y,
+                self.knockback
+            )
+
+    # opcional: reinicia boss (útil para testes)
+    def reset(self):
+        self.hp = self.max_hp
+        self.vx = 0
+        self.vy = 0
+        self.shoot_timer = 0
+        self.active = True
+
+    # opcional: comportamento ao morrer (se quiser algo além de kill)
+    def take_damage(self, amount, source=None):
+        super().take_damage(amount, source)
+        # se quiser algo na morte, trate aqui (spawn de itens, animação, etc.)
+
 # ---------- MAPA ----------
 
 # TILE SOLID CHECK
@@ -1137,7 +1290,14 @@ def init_game():
     enemies = [
         Patrol(200,100,16,32,320,speed=0.5),
         Patrol(200,100,8,8,348,patrol_range=40),
-        Stalker(200,100,8,8,364,speed=0.6,knockback=7)
+        Stalker(200,100,8,8,364,speed=0.6,knockback=7),
+
+        # FANTASMA VOADOR (FlyingStalker)
+        FlyingStalker(150, 50, 8, 8, 380, speed=0.8, frame_max=2, anim_speed=12),
+        
+        # BOSS FINAL (32x64)
+        BossFinal(400, 50)
+
     ]
 
     spawners = [
