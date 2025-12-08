@@ -338,6 +338,10 @@ class Player:
         self.apply_gravity()
         self.jump()
 
+    def cheat_full_health(self):
+        if key(8):
+            self.hp = self.max_hp
+
     # TAKE DAMAGE
     def take_damage(self,amount,causer_x,causer_y,knockback=3, i_frames=None):
         if self.invincible_timer>0:
@@ -565,6 +569,7 @@ class Player:
         self.move()
         self.collide_interactables_horizontal(interactables)
         self.collide_interactables_vertical(interactables)
+        self.cheat_full_health()
         self.try_attack()
         self.set_state()
         self.animate()
