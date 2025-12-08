@@ -14,6 +14,9 @@
 #TODO: fix double jump attack rotation
 #TODO: fix (or ignore) enemy flicking on_ground because of bad apply_gravity
 #TODO: fix Patrol Enemy for 'real' patrol_range funcionality, if have time
+#TODO: put doors and spawners
+#TODO: create boss as shooter
+#TODO: fix menu and gameover screen
 
 
 import random
@@ -359,6 +362,20 @@ class Player:
             death_timer = 20
         return True
         
+    #CHECK ENEMIES PROJECTILES
+    def check_hit_by_projectiles(self, projectiles):
+        if self.invincible_timer > 0:
+            return
+
+        for proj in projectiles:
+            if proj.owner == 'enemy':
+                # AABB collision
+                if (self.x < proj.x + proj.w and self.x + self.w > proj.x and self.y < proj.y + proj.h and self.y + self.h > proj.y):
+                    # apply player damage
+                    self.take_damage(proj.damage,proj.x, proj.y,knockback=3)
+
+                    # kill projectile
+                    proj.start_x -= proj.max_dist * 2  # força dead() = True
 
     # INTERACT
     def try_interact(self,interactibles):
@@ -565,10 +582,13 @@ class Player:
                 spr(self.attack_sprite,int(atk_x - cam_x),int(atk_y - cam_y),colorkey=0,scale=1,flip=self.dir,rotate=0,w=2,h=2)
 
     # Gather all update methods
-    def update(self, cam_x, cam_y, interactables):
+    def update(self, cam_x, cam_y, interactables, projectiles):
         self.move()
         self.collide_interactables_horizontal(interactables)
         self.collide_interactables_vertical(interactables)
+        self.check_hit_by_projectiles(projectiles)
+        player.try_interact(interactables)
+        player.try_shoot(projectiles)
         self.cheat_full_health()
         self.try_attack()
         self.set_state()
@@ -1186,7 +1206,7 @@ class BossFinal(Enemy):
                 w=8,                     # largura do projétil
                 h=8,
                 rotation_time=0,
-                owner="boss",
+                owner="enemy",
                 damage=self.projectile_damage
             )
         )
@@ -1331,9 +1351,9 @@ def draw_HUD(player):
         px = x + i * 10  # spacing
 
         if i < hearts:
-            spr(292, px, y)   # full heart
+            spr(292, px, y,colorkey=0)   # full heart
         else:
-            spr(293, px, y)   # empty heart
+            spr(293, px, y,colorkey=0)   # empty heart
 
 def TIC():
     global player, GAME_STATE, death_timer, music_started, interactables, projectiles
@@ -1370,9 +1390,7 @@ def TIC():
             inter.draw(cam_x,cam_y)
 
         #update player
-        player.update(cam_x, cam_y,interactables)
-        player.try_interact(interactables)
-        player.try_shoot(projectiles)
+        player.update(cam_x, cam_y,interactables,projectiles)
 
         #update projectiles
         for proj in projectiles:
