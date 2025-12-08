@@ -338,6 +338,10 @@ class Player:
         self.apply_gravity()
         self.jump()
 
+    def cheat_full_health(self):
+        if key(8):
+            self.hp = self.max_hp
+
     # TAKE DAMAGE
     def take_damage(self,amount,causer_x,causer_y,knockback=3, i_frames=None):
         if self.invincible_timer>0:
@@ -565,6 +569,7 @@ class Player:
         self.move()
         self.collide_interactables_horizontal(interactables)
         self.collide_interactables_vertical(interactables)
+        self.cheat_full_health()
         self.try_attack()
         self.set_state()
         self.animate()
@@ -657,7 +662,7 @@ class Interactable:
             colorkey=0, scale=1, rotate=0, w=self.w//8, h=self.h//8)
 
 def door_trigger(player, interactable):
-    trace("Porta abriu!")
+    player.door_keys+=1
     door_opened_sprite = 192
     interactable.solid = False
     interactable.sprite = door_opened_sprite
@@ -666,13 +671,54 @@ def door_req(num):
     return lambda player: getattr(player, 'door_keys')>=num
 
 def chest_trigger(player,interactable):
-    trace("Chest opened")
     chest_opened_sprite = 236
     interactable.solid = False
     interactable.sprite = chest_opened_sprite
 
 def chest_req(num):
     return lambda player: getattr(player,'chest_keys')>=num
+
+#SPAWNER
+class Spawner:
+    def __init__(self, x, y, enemy_type, interval=120, limit=None, req=None, offset_x=0, offset_y=0):
+        self.x = x
+        self.y = y
+        self.enemy_type = enemy_type     # classe do inimigo Ex: Patrol
+        self.interval = interval         # frames entre spawns
+        self.limit = limit               # maximo de inimigos vivos (None = infinito)
+        self.req = req                   # função requisito: req(player) → bool
+        self.timer = 0
+        self.spawned = []                # lista de inimigos criados
+        self.offset_x = offset_x         # ajuste fino para spawn
+        self.offset_y = offset_y
+
+    def update(self, player, enemies):
+        # requisito falhou? não pode spawnar ainda
+        if self.req and not self.req(player):
+            return
+        
+        # controla tempo
+        self.timer += 1
+        if self.timer < self.interval:
+            return
+        
+        self.timer = 0  # reset do timer
+
+        # limite atingido?
+        if self.limit is not None:
+            # limpa os mortos antes
+            self.spawned = [e for e in self.spawned if not e.is_dead()]
+            if len(self.spawned) >= self.limit:
+                return
+        
+        # cria inimigo
+        enemy = self.enemy_type(
+            self.x + self.offset_x,
+            self.y + self.offset_y
+        )
+
+        enemies.append(enemy)
+        self.spawned.append(enemy)
 
 # ---------- ENEMIES ----------
 class Enemy:
@@ -1072,6 +1118,7 @@ def rand(a, b):
 player = Player(0, 0)
 
 enemies = []
+spawners = []
 
 projectiles = []
 
@@ -1083,14 +1130,19 @@ death_timer = 0
 music_started = False
 
 def init_game():
-    global player, enemies, projectiles, interactables, death_timer, music_started
+    global player, enemies, projectiles, interactables, death_timer, music_started, spawners
 
     player = Player(0, 100)
 
     enemies = [
         Patrol(200,100,16,32,320,speed=0.5),
         Patrol(200,100,8,8,348,patrol_range=40),
-        Stalker(16,104,8,8,364,speed=0.6,knockback=7)
+        Stalker(200,100,8,8,364,speed=0.6,knockback=7)
+    ]
+
+    spawners = [
+        #Spawner(150,80,lambda x,y: Patrol(x,y,8,8,348,patrol_range=40),180,3,lambda p: p.door_keys >= 1),
+        Spawner(27*8,0,lambda x,y: Stalker(x,y,8,8,364,speed=0.4),180,3,lambda p: p.door_keys>=1)
     ]
 
     projectiles = []
@@ -1154,6 +1206,9 @@ def TIC():
                 projectiles.remove(proj)
                 continue
             proj.draw(cam_x, cam_y)
+
+        for sp in spawners:
+            sp.update(player, enemies)
 
         #update enemy
         for enemy in list(enemies):
