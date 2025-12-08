@@ -1141,8 +1141,8 @@ def init_game():
     ]
 
     spawners = [
-        #Spawner(150,80,lambda x,y: Patrol(x,y,8,8,348,patrol_range=40),180,3,lambda p: p.door_keys >= 1),
-        Spawner(27*8,0,lambda x,y: Stalker(x,y,8,8,364,speed=0.4),180,3,lambda p: p.door_keys>=1)
+        #Spawner(150,80,lambda x,y: Patrol(x,y,8,8,348,patrol_range=40),180,3,lambda p: p.door_keys == 1),
+        Spawner(27*8,0,lambda x,y: Stalker(x,y,8,8,364,speed=0.4),180,3,lambda p: p.door_keys==1)
     ]
 
     projectiles = []
@@ -1158,6 +1158,22 @@ def init_game():
     death_timer = 0
     music_started = False
 
+def draw_HUD(player):
+    # hud position
+    x = 2
+    y = 2
+
+    # cada coração vale 1 de vida
+    max_hearts = player.max_hp
+    hearts = player.hp
+
+    for i in range(max_hearts):
+        px = x + i * 10  # spacing
+
+        if i < hearts:
+            spr(292, px, y)   # full heart
+        else:
+            spr(293, px, y)   # empty heart
 
 def TIC():
     global player, GAME_STATE, death_timer, music_started, interactables, projectiles
@@ -1216,6 +1232,9 @@ def TIC():
             enemy.check_player_projectile(player, projectiles)
             if enemy.is_dead():
                 enemies.remove(enemy)
+
+        #draw hud must be the last draw function
+        draw_HUD(player)
 
         #fall from map
         if player.y > MAP_H:
