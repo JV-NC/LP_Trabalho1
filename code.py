@@ -14,6 +14,9 @@
 #TODO: fix double jump attack rotation
 #TODO: fix (or ignore) enemy flicking on_ground because of bad apply_gravity
 #TODO: fix Patrol Enemy for 'real' patrol_range funcionality, if have time
+#TODO: put doors and spawners
+#TODO: create boss as shooter
+#TODO: fix menu and gameover screen
 
 
 import random
@@ -23,7 +26,7 @@ def recoil(target, causer_x, causer_y, side_force=2,up_force=-2):
     dx = tx - causer_x
     #if 0, push to right
     if dx == 0:
-        dir_sign = 1 if getattr(target, "vx", 0) >= 0 else -1
+        dir_sign = 1 if getattr(target, "vx") >= 0 else -1
     else:
         dir_sign = 1 if dx > 0 else -1
 
@@ -342,6 +345,10 @@ class Player:
         if key(8):
             self.hp = self.max_hp
 
+    def cheat_more_health(self):
+        if key(10):
+            self.max_hp = 10
+            self.hp = self.max_hp
     # TAKE DAMAGE
     def take_damage(self,amount,causer_x,causer_y,knockback=3, i_frames=None):
         if self.invincible_timer>0:
@@ -359,6 +366,20 @@ class Player:
             death_timer = 20
         return True
         
+    #CHECK ENEMIES PROJECTILES
+    def check_hit_by_projectiles(self, projectiles):
+        if self.invincible_timer > 0:
+            return
+
+        for proj in projectiles:
+            if proj.owner == 'enemy':
+                # AABB collision
+                if (self.x < proj.x + proj.w and self.x + self.w > proj.x and self.y < proj.y + proj.h and self.y + self.h > proj.y):
+                    # apply player damage
+                    self.take_damage(proj.damage,proj.x, proj.y,knockback=3)
+
+                    # kill projectile
+                    proj.start_x -= proj.max_dist * 2  # força dead() = True
 
     # INTERACT
     def try_interact(self,interactibles):
@@ -565,11 +586,15 @@ class Player:
                 spr(self.attack_sprite,int(atk_x - cam_x),int(atk_y - cam_y),colorkey=0,scale=1,flip=self.dir,rotate=0,w=2,h=2)
 
     # Gather all update methods
-    def update(self, cam_x, cam_y, interactables):
+    def update(self, cam_x, cam_y, interactables, projectiles):
         self.move()
         self.collide_interactables_horizontal(interactables)
         self.collide_interactables_vertical(interactables)
+        self.check_hit_by_projectiles(projectiles)
+        player.try_interact(interactables)
+        player.try_shoot(projectiles)
         self.cheat_full_health()
+        self.cheat_more_health()
         self.try_attack()
         self.set_state()
         self.animate()
@@ -1186,7 +1211,7 @@ class BossFinal(Enemy):
                 w=8,                     # largura do projétil
                 h=8,
                 rotation_time=0,
-                owner="boss",
+                owner="enemy",
                 damage=self.projectile_damage
             )
         )
@@ -1235,23 +1260,100 @@ def get_camera(player):
     return int(cam_x), int(cam_y)
 
 # ---------- GAME SCREENS ----------
+def center_x(text, scale, screen_w=240):
+    char_w = 5
+    width = len(text) * char_w * scale
+    return int(screen_w/2 - width/2)
 
-def draw_menu():
+menu_t = 0
+
+def draw_menu(player):
+    global menu_t
+    menu_t+=1
     cls()
-    title = "TIC GAME"
-    start = "PRESSIONE 'PULO' PARA JOGAR"
 
-    # centraliza automaticamente
-    print(title, 240//2 - (len(title)*4)//2, 40, 15, False, 2)
-    print(start, 240//2 - (len(start)*4)//2, 80, 12, False, 1)
+    bg_tile = 176
+    tile_w = 1
+    tile_h = 1
+    WHITE = 12
+    BLACK = 15
+
+    #DRAW BG TILES
+    for ty in range(0,136,tile_h):
+        for tx in range(0,240,tile_w):
+            spr(bg_tile,tx,ty,colorkey=0,w=tile_w,h=tile_h)
+
+    #TITLE
+    title = "COLISEU RUN"
+    title_scale = 2
+    title_x = center_x(title, title_scale)
+    title_y = 20
+    print(title, title_x, title_y, WHITE, False, title_scale)
+
+    #PLAYER ANIMATION
+    anim_state = player.animations['sleep']
+
+    frame = (menu_t//anim_state['speed'])%anim_state['frames']
+    sprite_id = anim_state['start'] + frame * 2
+
+    #DRAW PLAYER WITH SCALE
+    px = 240//2 - (16*3)//2
+    py = 68
+    spr(sprite_id, px, py, colorkey=0, scale=3, flip=0, w=2, h=2)
+
+    #START MSG
+    msg = "PRESS 'SPACE' TO PLAY"
+    msg_scale = 1
+    msg_x = center_x(msg, msg_scale)
+    msg_y = py + 16*3 + 12
+
+    # blink every 20 frames
+    if (menu_t//20)%2==0:
+        print(msg, msg_x, msg_y, WHITE, False, 1)
 
 def draw_game_over():
+    global menu_t
+    menu_t += 1
     cls()
-    msg = "VOCE MORREU!"
-    retry = "PRESSIONE 'E' PARA RECOMEÇAR"
 
-    print(msg, 240//2 - (len(msg)*4)//2, 40, 14, False, 2)
-    print(retry, 240//2 - (len(retry)*4)//2, 80, 12, False, 1)
+    bg_tile = 176
+    tile_w = 1
+    tile_h = 1
+    WHITE = 12
+    RED = 14
+
+    #DRAW BG
+    for ty in range(0, 136, tile_h):
+        for tx in range(0, 240, tile_w):
+            spr(bg_tile, tx, ty, colorkey=0, w=tile_w, h=tile_h)
+    
+    #TITLE
+    title = "YOU DIED!"
+    title_scale = 2
+    title_x = center_x(title, title_scale)
+    title_y = 20
+    print(title, title_x, title_y, WHITE, False, title_scale)
+
+    #DEAD SPRITE
+    sprite_id = 308
+    scale = 3
+    w = 2 * 8 * scale   # largura real
+    h = 1 * 8 * scale   # altura real
+
+    px = int(240/2 - w/2)
+    py = 60
+
+    spr(sprite_id, px, py, colorkey=0, scale=scale, w=2, h=1)
+
+    #RESTART MSG
+    msg = "PRESS 'E' TO RESTART"
+    msg_scale = 1
+    msg_x = center_x(msg, msg_scale)
+    msg_y = py + h + 16
+
+    # blink every 20 frames
+    if (menu_t // 20) % 2 == 0:
+        print(msg, msg_x, msg_y, WHITE, False, msg_scale)
 
 #GLOBALS
 
@@ -1331,9 +1433,9 @@ def draw_HUD(player):
         px = x + i * 10  # spacing
 
         if i < hearts:
-            spr(292, px, y)   # full heart
+            spr(292, px, y,colorkey=0)   # full heart
         else:
-            spr(293, px, y)   # empty heart
+            spr(293, px, y,colorkey=0)   # empty heart
 
 def TIC():
     global player, GAME_STATE, death_timer, music_started, interactables, projectiles
@@ -1344,7 +1446,7 @@ def TIC():
         music_started = True
 
     if GAME_STATE == "menu":
-        draw_menu()
+        draw_menu(player)
         # SPACE = começar jogo
         if btn(4) or key(48):  # botão 'A' do TIC-80
             init_game()
@@ -1370,9 +1472,7 @@ def TIC():
             inter.draw(cam_x,cam_y)
 
         #update player
-        player.update(cam_x, cam_y,interactables)
-        player.try_interact(interactables)
-        player.try_shoot(projectiles)
+        player.update(cam_x, cam_y,interactables,projectiles)
 
         #update projectiles
         for proj in projectiles:
