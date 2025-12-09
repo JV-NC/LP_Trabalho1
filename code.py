@@ -1305,7 +1305,11 @@ class BossFinal(Enemy):
             damage=2,
             speed=0.3,
             knockback=6
+            
         )
+        
+        self.spawn_timer = 0
+        self.spawn_delay = 300   # frames (5s aprox)
 
         # tiro
         self.shoot_timer = 0
@@ -1342,6 +1346,11 @@ class BossFinal(Enemy):
         if self.shoot_timer >= self.shoot_delay:
             self.shoot_timer = 0
             self.shoot(player)
+            
+        self.spawn_timer += 1
+        if self.spawn_timer >= self.spawn_delay:
+            self.spawn_timer = 0
+            self.spawn_minion()
 
     def shoot(self, player: Player):
         if not self.active:
@@ -1371,6 +1380,19 @@ class BossFinal(Enemy):
                 damage=self.projectile_damage,
                 vx=vx,
                 vy=vy
+            )
+        )
+        
+    def spawn_minion(self):
+        enemies.append(
+            FlyingStalker(
+                self.x + self.w//2,   # nasce no meio do boss
+                self.y,               # um pouco acima
+                8, 8,
+                380,                  # sprite do flying stalker
+                speed=0.8,
+                frame_max=2,
+                anim_speed=12
             )
         )
 
