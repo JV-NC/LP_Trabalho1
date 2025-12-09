@@ -1326,7 +1326,7 @@ class BossFinal(Enemy):
             384,             # <-- sprite_base (coloque AQUI o primeiro sprite do boss)
             frame_max=2,     # AGORA TEM 4 FRAMES
             anim_speed=10,
-            max_hp=40,
+            max_hp=20,
             damage=2,
             speed=0.3,
             knockback=6
@@ -1335,6 +1335,8 @@ class BossFinal(Enemy):
         
         self.spawn_timer = 0
         self.spawn_delay = 300   # frames (5s aprox)
+        
+        self.rage_active = False
 
         # tiro
         self.shoot_timer = 0
@@ -1348,6 +1350,9 @@ class BossFinal(Enemy):
         if not self.active:
             self.vx = 0
             return
+
+        if not self.rage_active and self.hp <= 0.3 * self.max_hp:
+            self.enter_rage_mode()
 
         # movimento horizontal simples
         if player.x > self.x:
@@ -1376,6 +1381,15 @@ class BossFinal(Enemy):
         if self.spawn_timer >= self.spawn_delay:
             self.spawn_timer = 0
             self.spawn_minion()
+                
+                
+    def enter_rage_mode(self):
+        self.rage_active = True
+        self.speed *= 1.5          # aumenta velocidade
+        self.damage *= 2           # aumenta dano
+        self.shoot_delay = max(10, self.shoot_delay // 2)  # atira mais rápido
+        self.projectile_speed *= 1.5
+        print("RAGE MODE ATIVADO!")  # só para debug
 
     def shoot(self, player: Player):
         if not self.active:
@@ -1552,6 +1566,16 @@ def draw_game_over():
     if (menu_t // 20) % 2 == 0:
         print(msg, msg_x, msg_y, WHITE, False, msg_scale)
 
+def play_victory_sfx():
+    # toca notas rápidas (3 notas ascendentes)
+    # sintaxe: sfx(id, note=0, duration=0, channel=0, volume=0, speed=0)
+    # aqui usamos sfx() direto com parâmetros para criar efeito simples
+    sfx(0, 48, 8, 0, 15, 3)  # primeira nota
+    sfx(0, 52, 8, 0, 15, 3)  # segunda nota
+    sfx(0, 55, 8, 0, 15, 3)  # terceira not
+
+
+
 def draw_game_win():
     cls()
 
@@ -1582,6 +1606,10 @@ def draw_game_win():
     msg_x = center_x(msg, msg_scale)
     msg_y = 90
     print(msg, msg_x, msg_y, WHITE, False, msg_scale)
+    
+    if not music_started:
+        play_victory_sfx()
+        music_started = True
 
 
 def draw_item_screen(item_name, sprite_id):
@@ -1771,7 +1799,7 @@ def TIC():
         show_item_test = True
 
     if GAME_STATE == "item":
-        draw_item_screen("SPEED UPGRADE", 429)  # sprite de exemplo
+        draw_item_screen("SPEED UPGRADE", 461)  # sprite de exemplo
         if btnp(7) or key(5):  # E para voltar
             GAME_STATE = "game"
             show_item_test = False
