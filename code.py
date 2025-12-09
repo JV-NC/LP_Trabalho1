@@ -116,7 +116,7 @@ class Player:
         self.interact_timer = 0
         self.interact_duration = 12
         self.can_move = True
-        self.door_keys = 1
+        self.door_keys = 0
         self.chest_keys = 1
 
         #attack
@@ -1553,10 +1553,18 @@ def init_game():
     chest_closed_sprite = 204
     door_closed_sprite = 206
 
+
     interactables = [
-        Interactable(232, 88, 16, 32, door_closed_sprite, door_trigger, door_req(1)),
-        Interactable(7*8, 13*8, 16, 16, chest_closed_sprite, chest_trigger, chest_req(1))
+        Interactable(29*8, 11*8, 16, 32, door_closed_sprite, door_trigger, door_req(0)),
+        Interactable(59*8, 11*8, 16, 32, door_closed_sprite, door_trigger, door_req(1)),
+        Interactable(89*8, 11*8, 16, 32, door_closed_sprite, door_trigger, door_req(2)),
+        Interactable(119*8, 11*8, 16, 32, door_closed_sprite, door_trigger, door_req(3)),
+        Interactable(89*8, 28*8, 16, 32, door_closed_sprite, door_trigger, door_req(4)),
+        Interactable(59*8, 28*8, 16, 32, door_closed_sprite, door_trigger, door_req(5)),
+        Interactable(29*8, 28*8, 16, 32, door_closed_sprite, door_trigger, door_req(6)),
     ]
+        #Interactable(119*8, 28*8, 16, 32, door_closed_sprite, door_trigger, door_req(4)),
+        #Interactable(7*8, 13*8, 16, 32, chest_closed_sprite, chest_trigger, chest_req(1))
 
     death_timer = 0
     music_started = False
