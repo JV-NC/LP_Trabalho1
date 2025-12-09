@@ -193,10 +193,10 @@ class Player:
 
         # input
         speed = self.gspeed if self.on_ground else self.aspeed
-        if btn(2) or key(1):   # left
+        if btn(2) or key(1) or key(80):   # left
             self.vx -= speed
             self.dir = 1
-        elif btn(3) or key(4): # right
+        elif btn(3) or key(4) or key(82): # right
             self.vx += speed
             self.dir = 0
         else:
@@ -347,11 +347,11 @@ class Player:
         self.jump()
 
     def cheat_full_health(self):
-        if key(8):
+        if key(8) or key(87):
             self.hp = self.max_hp
 
     def cheat_more_health(self):
-        if key(10):
+        if key(10) or key(88):
             self.max_hp = 10
             self.hp = self.max_hp
     # TAKE DAMAGE
@@ -451,7 +451,7 @@ class Player:
         if self.interact_timer>0 or not self.on_ground:
             return
 
-        if not key(5): #'E' or button 'Y'
+        if not key(5) and not key(24): #'X' or button 'Y'
             return
         
         self.interact_timer = self.interact_duration
@@ -471,12 +471,12 @@ class Player:
         if self.attack_timer>0 or self.attack_cooldown>0:
             return
         
-        if not key(6): #'F' attacks
+        if not key(6) and not key(22): #'F' attacks
             return
         
-        if btn(0) or key(23):
+        if btn(0) or key(23) or key(84):
             self.attack_dir = 'up'
-        elif (btn(1) or key(19)) and not self.on_ground:
+        elif (btn(1) or key(19) or key(81)) and not self.on_ground:
             self.attack_dir = 'down'
         else:
             self.attack_dir = 'side'
@@ -529,7 +529,7 @@ class Player:
             self.shoot_cooldown-=1
             return
         
-        if not key(17):
+        if not key(17) and not key(3):
             return
         
         self.shoot_timer = self.shoot_duration
@@ -812,7 +812,7 @@ def shoot_chest_trigger(player, interactable):
     player.shoot_unlocked = True
     global GAME_STATE, select_upgrade
     GAME_STATE = 'item'
-    select_upgrade = 'PRESS "Q" TO SHOOT'
+    select_upgrade = 'PRESS "C" TO SHOOT'
 
 def shoot_damage_chest_trigger(player, interactable):
     chest_opened_sprite = 236
@@ -1308,7 +1308,7 @@ class Stalker(Enemy):
 
 class FlyingStalker(Enemy):
     def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15,
-                 max_hp=3, damage=1, speed=1, knockback=4):
+                 max_hp=1, damage=1, speed=1, knockback=4):
         super().__init__(x, y, w, h, sprite_base, frame_max, anim_speed,
                          max_hp, damage, speed, knockback)
 
@@ -1591,7 +1591,7 @@ def draw_game_over():
     spr(sprite_id, px, py, colorkey=0, scale=scale, w=2, h=1)
 
     #RESTART MSG
-    msg = "PRESS 'E' TO RESTART"
+    msg = "PRESS 'X' TO RESTART"
     msg_scale = 1
     msg_x = center_x(msg, msg_scale)
     msg_y = py + h + 16
@@ -1635,7 +1635,7 @@ def draw_game_win():
     spr(396, 104, 52, colorkey=0, w=3, h=3)
 
     # texto inferior branco
-    msg = "PRESS 'E' TO RETURN"
+    msg = "PRESS 'X' TO RETURN"
     msg_scale = 1
     msg_x = center_x(msg, msg_scale)
     msg_y = 90
@@ -1759,12 +1759,12 @@ def init_game():
         # ---------- ROOM 4 ----------
         Spawner(92*8,  28*8, lambda x,y: Patrol(x,y,8,8,348, patrol_range=80), 180, 3, lambda p: p.door_keys == 4),
         Spawner(108*8, 28*8, lambda x,y: Patrol(x,y,8,8,348, patrol_range=80), 180, 3, lambda p: p.door_keys == 4),
-        Spawner(94*8,  18*8, lambda x,y: Stalker(x,y,8,8,364, speed=0.4), 180, 3, lambda p: p.door_keys == 4),
-        Spawner(104*8, 20*8, lambda x,y: Stalker(x,y,8,8,364, speed=0.4), 180, 3, lambda p: p.door_keys == 4),
+        Spawner(94*8,  18*8, lambda x,y: Stalker(x,y,16,32,320, speed=0.4), 180, 3, lambda p: p.door_keys == 4),
+        Spawner(104*8, 20*8, lambda x,y: Stalker(x,y,16,32,324, speed=0.4), 180, 3, lambda p: p.door_keys == 4),
 
         # ---------- ROOM 5 ----------
-        Spawner(62*8, 18*8, lambda x,y: FlyingStalker(x,y,8, 8, 380, speed=0.8, frame_max=2, anim_speed=12), 180, 2, lambda p: p.door_keys == 5),
-        Spawner(66*8, 18*8, lambda x,y: FlyingStalker(x,y,8, 8, 380, speed=0.8, frame_max=2, anim_speed=12), 180, 2, lambda p: p.door_keys == 5),
+        Spawner(62*8, 18*8, lambda x,y: FlyingStalker(x,y,16, 16, 328, speed=0.8, frame_max=2, anim_speed=12), 180, 2, lambda p: p.door_keys == 5),
+        Spawner(66*8, 18*8, lambda x,y: FlyingStalker(x,y,16, 16, 360, speed=0.8, frame_max=2, anim_speed=12), 180, 2, lambda p: p.door_keys == 5),
         Spawner(70*8, 18*8, lambda x,y: FlyingStalker(x,y,8, 8, 380, speed=0.8, frame_max=2, anim_speed=12), 180, 2, lambda p: p.door_keys == 5),
         Spawner(74*8, 18*8, lambda x,y: FlyingStalker(x,y,8, 8, 380, speed=0.8, frame_max=2, anim_speed=12), 180, 2, lambda p: p.door_keys == 5),
 
@@ -1908,7 +1908,7 @@ def TIC():
             return
 
         # E = volta ao menu
-        if btnp(7) or key(5):
+        if btnp(7) or key(5) or key(24):
             GAME_STATE = "menu"
         return
     
@@ -1916,6 +1916,6 @@ def TIC():
         draw_game_win()
 
         # Aperta E para voltar ao menu
-        if btnp(7) or key(5):
+        if btnp(7) or key(5) or key(24):
             GAME_STATE = "menu"
         return
