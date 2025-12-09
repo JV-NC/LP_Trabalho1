@@ -5,6 +5,11 @@
 # version: 0.1
 # script:  python
 
+#TODO: check spawners timer and max entities
+#TODO: check door requirements
+#TODO: lock player on boss room
+#TODO: upgrade chest
+
 #TODO: implement Ghost Stalker
 #TODO: implement 2 enemies structure type and 1 boss
 #TODO: draw better menu and gameover screen
@@ -71,7 +76,7 @@ class Player:
         self.on_ground = False
 
         #double jump
-        self.double_jump_unlocked = True
+        self.double_jump_unlocked = False
         self.djump_force = -3
         self.djump_boost = -0.4
         self.max_djump_time = 12
@@ -111,7 +116,7 @@ class Player:
         self.interact_timer = 0
         self.interact_duration = 12
         self.can_move = True
-        self.door_keys = 1
+        self.door_keys = 0
         self.chest_keys = 1
 
         #attack
@@ -127,7 +132,7 @@ class Player:
         self.attack_dir = 'side'
 
         #projectile
-        self.shoot_unlocked = True
+        self.shoot_unlocked = False
         self.shoot_timer = 0
         self.shoot_duration = 12
         self.shoot_sprite = 302
@@ -768,13 +773,33 @@ def door_trigger(player, interactable):
     interactable.solid = False
     interactable.sprite = door_opened_sprite
 
+def boss_door_trigger(player, interactable):
+    door_opened_sprite = 192
+    interactable.solid = False
+    interactable.sprite = door_opened_sprite
+
 def door_req(num):
     return lambda player: getattr(player, 'door_keys')>=num
 
 def chest_trigger(player,interactable):
     chest_opened_sprite = 236
+    player.door_keys+=1
     interactable.solid = False
     interactable.sprite = chest_opened_sprite
+
+def dj_chest_trigger(player,interactable):
+    chest_opened_sprite = 236
+    player.chest_keys+=1
+    interactable.solid = False
+    interactable.sprite = chest_opened_sprite
+    player.double_jump_unlocked = True
+
+def shoot_chest_trigger(player, interactable):
+    chest_opened_sprite = 236
+    player.chest_keys+=1
+    interactable.solid = False
+    interactable.sprite = chest_opened_sprite
+    player.shoot_unlocked = True
 
 def chest_req(num):
     return lambda player: getattr(player,'chest_keys')>=num
@@ -1503,10 +1528,14 @@ def draw_game_over():
     print(title, title_x, title_y, WHITE, False, title_scale)
 
     #DEAD SPRITE
-    sprite_id = 308
+    std_sprite_id = 308
+    max_frames = 2
+    speed = 30
     scale = 3
     w = 2 * 8 * scale   # largura real
     h = 1 * 8 * scale   # altura real
+    frame = (menu_t//speed)%max_frames
+    sprite_id = std_sprite_id + frame * 2
 
     px = int(240/2 - w/2)
     py = 60
@@ -1604,8 +1633,40 @@ def init_game():
     ]
 
     spawners = [
-        #Spawner(150,80,lambda x,y: Patrol(x,y,8,8,348,patrol_range=40),180,3,lambda p: p.door_keys == 1),
-        Spawner(27*8,0,lambda x,y: Stalker(x,y,8,8,364,speed=0.4),180,3,lambda p: p.door_keys==1)
+        # ---------- ROOM 1 ----------
+        Spawner(43*8, 11*8, lambda x,y: Patrol(x,y,8,8,348, patrol_range=40), 180, 3, lambda p: p.door_keys == 1),
+        Spawner(40*8,  6*8, lambda x,y: Patrol(x,y,8,8,348, patrol_range=40), 180, 3, lambda p: p.door_keys == 1),
+
+        # ---------- ROOM 2 ----------
+        Spawner(76*8, 4*8, lambda x,y: Stalker(x,y,8,8,364, speed=0.4), 180, 3, lambda p: p.door_keys == 2),
+        Spawner(87*8, 3*8, lambda x,y: Stalker(x,y,8,8,364, speed=0.4), 180, 3, lambda p: p.door_keys == 2),
+        Spawner(64*8, 11*8, lambda x,y: Patrol(x,y,8,8,348, patrol_range=40), 180, 3, lambda p: p.door_keys == 2),
+
+        # ---------- ROOM 3 ----------
+        Spawner(98*8,  2*8, lambda x,y: Stalker(x,y,8,8,364, speed=0.4), 180, 3, lambda p: p.door_keys == 3),
+        Spawner(113*8, 1*8, lambda x,y: FlyingStalker(x,y,8, 8, 380, speed=0.8, frame_max=2, anim_speed=12), 180, 3, lambda p: p.door_keys == 3),
+        Spawner(110*8, 7*8, lambda x,y: FlyingStalker(x,y,8, 8, 380, speed=0.8, frame_max=2, anim_speed=12), 180, 3, lambda p: p.door_keys == 3),
+
+        # ---------- ROOM 4 ----------
+        Spawner(92*8,  28*8, lambda x,y: Patrol(x,y,8,8,348, patrol_range=40), 180, 3, lambda p: p.door_keys == 4),
+        Spawner(108*8, 28*8, lambda x,y: Patrol(x,y,8,8,348, patrol_range=40), 180, 3, lambda p: p.door_keys == 4),
+        Spawner(94*8,  18*8, lambda x,y: Stalker(x,y,8,8,364, speed=0.4), 180, 3, lambda p: p.door_keys == 4),
+        Spawner(104*8, 20*8, lambda x,y: Stalker(x,y,8,8,364, speed=0.4), 180, 3, lambda p: p.door_keys == 4),
+
+        # ---------- ROOM 5 ----------
+        Spawner(62*8, 18*8, lambda x,y: FlyingStalker(x,y,8, 8, 380, speed=0.8, frame_max=2, anim_speed=12), 180, 3, lambda p: p.door_keys == 5),
+        Spawner(66*8, 18*8, lambda x,y: FlyingStalker(x,y,8, 8, 380, speed=0.8, frame_max=2, anim_speed=12), 180, 3, lambda p: p.door_keys == 5),
+        Spawner(70*8, 18*8, lambda x,y: FlyingStalker(x,y,8, 8, 380, speed=0.8, frame_max=2, anim_speed=12), 180, 3, lambda p: p.door_keys == 5),
+        Spawner(74*8, 18*8, lambda x,y: FlyingStalker(x,y,8, 8, 380, speed=0.8, frame_max=2, anim_speed=12), 180, 3, lambda p: p.door_keys == 5),
+
+        # ---------- ROOM 6 ----------
+        Spawner(34*8, 18*8, lambda x,y: Stalker(x,y,8,8,364, speed=0.4), 180, 3, lambda p: p.door_keys == 6),
+        Spawner(56*8, 20*8, lambda x,y: Stalker(x,y,8,8,364, speed=0.4), 180, 3, lambda p: p.door_keys == 6),
+        Spawner(38*8, 24*8, lambda x,y: FlyingStalker(x,y,8, 8, 380, speed=0.8, frame_max=2, anim_speed=12), 180, 3, lambda p: p.door_keys == 6),
+        Spawner(46*8, 22*8, lambda x,y: FlyingStalker(x,y,8, 8, 380, speed=0.8, frame_max=2, anim_speed=12), 180, 3, lambda p: p.door_keys == 6),
+
+        # ---------- ROOM 7 (BOSS FINAL) ----------
+        Spawner(0*8, 25*8, lambda x,y: BossFinal(x,y), 180, 1, lambda p: p.door_keys == 7)
     ]
 
     projectiles = []
@@ -1613,10 +1674,21 @@ def init_game():
     chest_closed_sprite = 204
     door_closed_sprite = 206
 
+
     interactables = [
-        Interactable(232, 88, 16, 32, door_closed_sprite, door_trigger, door_req(1)),
-        Interactable(7*8, 13*8, 16, 16, chest_closed_sprite, chest_trigger, chest_req(1))
+        Interactable(29*8, 11*8, 16, 32, door_closed_sprite, door_trigger, door_req(0)),
+        Interactable(59*8, 11*8, 16, 32, door_closed_sprite, door_trigger, door_req(1)),
+        Interactable(89*8, 11*8, 16, 32, door_closed_sprite, door_trigger, door_req(2)),
+        Interactable(119*8, 11*8, 16, 32, door_closed_sprite, door_trigger, door_req(3)),
+        Interactable(89*8, 28*8, 16, 32, door_closed_sprite, door_trigger, door_req(4)),
+        Interactable(59*8, 28*8, 16, 32, door_closed_sprite, door_trigger, door_req(5)),
+        Interactable(29*8, 28*8, 16, 32, door_closed_sprite, door_trigger, door_req(6)),
+
+        Interactable(20*8, 13*8, 16, 16, chest_closed_sprite, dj_chest_trigger, chest_req(1)),
+        Interactable(109*8, 8*8, 16, 16, chest_closed_sprite, shoot_chest_trigger, chest_req(2))
     ]
+        #Interactable(119*8, 28*8, 16, 32, door_closed_sprite, door_trigger, door_req(4)),
+        #Interactable(7*8, 13*8, 16, 32, chest_closed_sprite, chest_trigger, chest_req(1))
 
     death_timer = 0
     music_started = False
