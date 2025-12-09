@@ -1501,6 +1501,39 @@ def draw_game_over():
     if (menu_t // 20) % 2 == 0:
         print(msg, msg_x, msg_y, WHITE, False, msg_scale)
 
+def draw_game_win():
+    cls()
+
+    bg_tile = 176
+    tile_w = 1
+    tile_h = 1
+
+    WHITE = 12
+    YELLOW = 5
+
+    # fundo
+    for ty in range(0, 136, tile_h):
+        for tx in range(0, 240, tile_w):
+            spr(bg_tile, tx, ty, colorkey=34, w=tile_w, h=tile_h)
+
+    # TÍTULO EM AMARELO
+    title = "VICTORY!"
+    title_scale = 2
+    title_x = center_x(title, title_scale)
+    title_y = 20
+    print(title, title_x, title_y, YELLOW, False, title_scale)   # <-- AQUI
+    
+    spr(396, 104, 52, colorkey=0, w=3, h=3)
+
+    # texto inferior branco
+    msg = "PRESS 'E' TO RETURN"
+    msg_scale = 1
+    msg_x = center_x(msg, msg_scale)
+    msg_y = 90
+    print(msg, msg_x, msg_y, WHITE, False, msg_scale)
+
+
+
 #GLOBALS
 
 TILE_SIZE = 8
@@ -1536,12 +1569,12 @@ def init_game():
     player = Player(0, 100)
 
     enemies = [
-        Patrol(200,100,16,32,320,speed=0.5),
-        Patrol(200,100,8,8,348,patrol_range=40),
-        Stalker(200,100,8,8,364,speed=0.6,knockback=7),
+        # Patrol(200,100,16,32,320,speed=0.5),
+        # Patrol(200,100,8,8,348,patrol_range=40),
+        # Stalker(200,100,8,8,364,speed=0.6,knockback=7),
 
-        # FANTASMA VOADOR (FlyingStalker)
-        FlyingStalker(150, 50, 8, 8, 380, speed=0.8, frame_max=2, anim_speed=12),
+        # # FANTASMA VOADOR (FlyingStalker)
+        # FlyingStalker(150, 50, 8, 8, 380, speed=0.8, frame_max=2, anim_speed=12),
         
         # BOSS FINAL (32x64)
         BossFinal(400, 50)
@@ -1636,8 +1669,15 @@ def TIC():
         for enemy in list(enemies):
             enemy.update(cam_x, cam_y, player)
             enemy.check_player_projectile(player, projectiles)
+
             if enemy.is_dead():
+                # SE FOR O BOSS → VITÓRIA!
+                if isinstance(enemy, BossFinal):
+                    GAME_STATE = "win"
+                    return
+
                 enemies.remove(enemy)
+
 
         #draw hud must be the last draw function
         draw_HUD(player)
@@ -1657,6 +1697,14 @@ def TIC():
             return
 
         # E = volta ao menu
+        if btnp(7) or key(5):
+            GAME_STATE = "menu"
+        return
+    
+    if GAME_STATE == "win":
+        draw_game_win()
+
+        # Aperta E para voltar ao menu
         if btnp(7) or key(5):
             GAME_STATE = "menu"
         return
