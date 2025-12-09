@@ -367,19 +367,79 @@ class Player:
         return True
         
     #CHECK ENEMIES PROJECTILES
+    def check_player_projectile(self, player: Player, projectiles: list[Projectile]):
+        for proj in list(projectiles):
+
+            # ============================
+            # 1) PROJÉTIL DO PLAYER → acerta INIMIGO
+            # ============================
+            if proj.owner == "player":
+                if (
+                    self.x < proj.x + proj.w and self.x + self.w > proj.x and self.y < proj.y + proj.h and self.y + self.h > proj.y
+                ):
+                    if self.invincible_timer > 0:
+                        continue
+
+                    # dano no inimigo
+                    self.take_damage(proj.damage, source=player)
+
+                    # stun + invencibilidade
+                    self.stun_timer = self.stun_duration
+                    self.invincible_timer = self.invincible_duration
+
+                    # RECOIL correto
+                    recoil(
+                        self, proj.x, proj.y, side_force=self.side_force, up_force=-3
+                    )
+
+                    if proj in projectiles:
+                        projectiles.remove(proj)
+                    continue
+
+            # ============================
+            # 2) PROJÉTIL DO BOSS → acerta PLAYER
+            # ============================
+            if proj.owner == "boss":
+                if (
+                    player.x < proj.x + proj.w and player.x + player.w > proj.x and player.y < proj.y + proj.h and player.y + player.h > proj.y
+                ):
+
+                    if proj in projectiles:
+                        projectiles.remove(proj)
+
+                    player.take_damage(
+                        proj.damage,
+                        self.x,
+                        self.y,
+                        self.knockback
+                    )
+                    continue
+
+
     def check_hit_by_projectiles(self, projectiles):
-        if self.invincible_timer > 0:
-            return
+        for proj in list(projectiles):
 
-        for proj in projectiles:
-            if proj.owner == 'enemy':
-                # AABB collision
-                if (self.x < proj.x + proj.w and self.x + self.w > proj.x and self.y < proj.y + proj.h and self.y + self.h > proj.y):
-                    # apply player damage
-                    self.take_damage(proj.damage,proj.x, proj.y,knockback=3)
+            # só projétil do boss bate no player
+            if proj.owner != "boss":
+                continue
 
-                    # kill projectile
-                    proj.start_x -= proj.max_dist * 2  # força dead() = True
+            # colisão AABB
+            if (
+                self.x < proj.x + proj.w and self.x + self.w > proj.x and self.y < proj.y + proj.h and self.y + self.h > proj.y
+            ):
+                # remove o projétil
+                if proj in projectiles:
+                    projectiles.remove(proj)
+
+                # aplica dano no player
+                self.take_damage(
+                    proj.damage,
+                    proj.x,
+                    proj.y,
+                    knockback=6  # ou o valor que usa no seu jogo
+                )
+                return   # só 1 hit por frame para evitar bug
+
 
     # INTERACT
     def try_interact(self,interactibles):
@@ -602,10 +662,13 @@ class Player:
 
 # PROJECTILE
 class Projectile:
-    def __init__(self, x, y, dir, sprite, speed=3, max_dist=120, w=8, h=8, rotation_time=0,owner: str='player', damage=1):
+    def __init__(self, x, y, dir, sprite, speed=3, max_dist=120, w=8, h=8, rotation_time=0, owner='player', damage=1, vx=None, vy=None):
+        # DEBUG TEMP (remova depois se quiser)
+        # print("Projectile init (v2)", x, y, dir, sprite, "vx", vx, "vy", vy)
+
         self.x = x
         self.y = y
-        self.dir = dir   # 0 = direita / 1 = esquerda
+        self.dir = dir
         self.sprite = sprite
         self.speed = speed
         self.max_dist = max_dist
@@ -613,32 +676,44 @@ class Projectile:
         self.start_y = y
         self.w = w
         self.h = h
-         # rotation
+
+        # movimento custom
+        self.vx = vx
+        self.vy = vy
+
+        # rotação
         self.rotation_time = rotation_time
         self.rotation_timer = 0
         self.rotation_frame = 0
 
         self.damage = damage
         self.owner = owner
-    
-    def move(self):
-        if self.dir == 0:
-            self.x += self.speed
-        else:
-            self.x -= self.speed
 
-        #rotation logic if time>0
-        if self.rotation_time>0:
-            self.rotation_timer+=1
-            if self.rotation_timer>=self.rotation_time:
-                self.rotation_frame = (self.rotation_frame+1)%4
+    def move(self):
+        # movimento padrão (horizontal)
+        if self.vx is None:
+            if self.dir == 0:
+                self.x += self.speed
+            else:
+                self.x -= self.speed
+        else:
+            # movimento direcional real (teleguiado)
+            self.x += self.vx
+            self.y += self.vy
+
+        # rotação
+        if self.rotation_time > 0:
+            self.rotation_timer += 1
+            if self.rotation_timer >= self.rotation_time:
+                self.rotation_frame = (self.rotation_frame + 1) % 4
                 self.rotation_timer = 0
 
     def hit_solid(self):
-        return solid_tile_at(self.x, self.y) or solid_tile_at(self.x+self.w-1, self.y+self.h-1)
-    
+        return (
+            solid_tile_at(self.x, self.y) or solid_tile_at(self.x + self.w - 1, self.y + self.h - 1)
+        )
+
     def draw(self, cam_x, cam_y):
-        rotate_amt = self.rotation_frame if self.rotation_time > 0 else 0
         spr(
             self.sprite,
             int(self.x - cam_x),
@@ -646,7 +721,7 @@ class Projectile:
             colorkey=0,
             scale=1,
             flip=self.dir,
-            rotate=rotate_amt,
+            rotate=self.rotation_frame if self.rotation_time > 0 else 0,
             w=1,
             h=1
         )
@@ -654,6 +729,7 @@ class Projectile:
     def dead(self):
         dist = abs(self.x - self.start_x)
         return dist > self.max_dist
+
 
 # INTERACTABLE
 class Interactable:
@@ -818,25 +894,55 @@ class Enemy:
             elif player.attack_dir=='down':
                 recoil(player,self.x,self.y,side_force=0,up_force=-6)
 
-    def check_player_projectile(self, player: Player, projectiles : list[Projectile]):
+    def check_player_projectile(self, player: Player, projectiles: list[Projectile]):
         for proj in list(projectiles):
-            if proj.owner != 'player':
-                continue
-            
-            #check colision
-            if self.x < proj.x + proj.w and self.x + self.w > proj.x and self.y < proj.y + proj.h and self.y + self.h > proj.y:
-                if self.invincible_timer > 0:
+
+            # ============================
+            # 1) PROJÉTIL DO PLAYER → acerta INIMIGO
+            # ============================
+            if proj.owner == "player":
+                if ( self.x < proj.x + proj.w and self.x + self.w > proj.x and self.y < proj.y + proj.h and self.y + self.h > proj.y):
+                    if self.invincible_timer > 0:
+                        continue
+
+                    # dano no inimigo
+                    self.take_damage(proj.damage, source=player)
+
+                    # stun + invencibilidade
+                    self.stun_timer = self.stun_duration
+                    self.invincible_timer = self.invincible_duration
+
+                    # RECOIL correto
+                    recoil(
+                        self,
+                        proj.x,
+                        proj.y,
+                        side_force=self.side_force,
+                        up_force=-3
+                    )
+
+                    if proj in projectiles:
+                        projectiles.remove(proj)
                     continue
 
-                #hit projectile
-                self.take_damage(proj.damage, source=player)
-                self.stun_timer = self.stun_duration
-                self.invincible_timer = self.invincible_duration
+            # ============================
+            # 2) PROJÉTIL DO BOSS → acerta PLAYER
+            # ============================
+            if proj.owner == "boss":
+                if (player.x < proj.x + proj.w and player.x + player.w > proj.x and player.y < proj.y + proj.h and player.y + player.h > proj.y):
 
-                recoil(self, proj.x, proj.y, side_force=self.side_force, up_force=-3)
+                    if proj in projectiles:
+                        projectiles.remove(proj)
 
-                if proj in projectiles:
-                    projectiles.remove(proj)
+                    player.take_damage(
+                        proj.damage,
+                        self.x,
+                        self.y,
+                        self.knockback
+                    )
+                    continue
+
+
 
     def is_dead(self):
         return self.hp<=0
@@ -1138,30 +1244,28 @@ class BossFinal(Enemy):
     def __init__(self, x, y):
         super().__init__(
             x, y,
-            32, 64,       # tamanho (2 blocos de 32x32 = 32x64)
-            384,          # sprite_base (canto sup ESQUERDO)
-            frame_max=1,  # sem animação por frame (você pode mudar depois)
+            32, 64,
+            384,
+            frame_max=1,
             anim_speed=10,
-            max_hp=40,    # vida alta, ajuste se quiser
+            max_hp=40,
             damage=2,
-            speed=0.3,    # bem mais lento que inimigos normais
+            speed=0.3,
             knockback=6
         )
 
-        # tiro
         self.shoot_timer = 0
-        self.shoot_delay = 90   # frames entre tiros (ajusta se quiser)
+        self.shoot_delay = 90
         self.projectile_sprite = 303
         self.projectile_speed = 2
         self.projectile_damage = 1
-        self.active = True  # flag pra ligar/desligar o boss facilmente
+        self.active = True
 
     def move_behavior(self, player: Player):
         if not self.active:
             self.vx = 0
             return
 
-        # --- perseguir no eixo X (lento) ---
         if player.x > self.x:
             self.vx = self.speed
             self.facing = 0
@@ -1171,62 +1275,58 @@ class BossFinal(Enemy):
         else:
             self.vx = 0
 
-        # --- limita velocidade (segurança) ---
         if self.vx > self.speed:
             self.vx = self.speed
         if self.vx < -self.speed:
             self.vx = -self.speed
 
-        # --- garantir movimento mesmo se Enemy.update esquecer move_friction() ---
-        # (move_friction() também será chamada pelo Enemy.update() se estiver correto)
+        # garante que o inimigo se mova; move_friction também será chamado por Enemy.update()
         self.move_friction()
 
-        # --- gerenciamento de tiro ---
+        # tiro
         self.shoot_timer += 1
         if self.shoot_timer >= self.shoot_delay:
             self.shoot_timer = 0
             self.shoot(player)
 
     def shoot(self, player: Player):
-        # só atira se estiver ativo
         if not self.active:
             return
 
-        # direção horizontal baseada no player
-        dir_flag = 0 if player.x > self.x else 1  # 0 => direita, 1 => esquerda
+        spawn_x = int(self.x + (self.w // 2))
+        spawn_y = int(self.y + (self.h // 2))
 
-        # spawn do projétil um pouco fora do corpo do boss (evita colidir com ele mesmo)
-        spawn_x = int(self.x + (self.w // 2) - 4)
-        spawn_y = int(self.y + (self.h // 2) - 4)
+        dx = player.x - spawn_x
+        dy = player.y - spawn_y
+        dist = (dx*dx + dy*dy) ** 0.5
+        if dist == 0: dist = 1
 
-        # cria projétil compatível com seu construtor
+        speed = self.projectile_speed
+        vx = (dx / dist) * speed
+        vy = (dy / dist) * speed
+
+        # cria projétil com vx/vy — seguirá em linha reta na direção do player
         projectiles.append(
             Projectile(
-                spawn_x,                 # x
-                spawn_y,                 # y
-                dir_flag,                # dir (0 direita / 1 esquerda)
-                self.projectile_sprite,  # sprite
-                speed=self.projectile_speed,
-                max_dist=200,            # alcance, ajuste se quiser
-                w=8,                     # largura do projétil
-                h=8,
+                spawn_x,
+                spawn_y,
+                0,
+                self.projectile_sprite,
+                speed=speed,
+                max_dist=80,
+                w=8, h=8,
                 rotation_time=0,
-                owner="enemy",
-                damage=self.projectile_damage
+                owner="boss",
+                damage=self.projectile_damage,
+                vx=vx,
+                vy=vy
             )
         )
 
     def on_player_collision(self, player: Player):
-        # segue padrão dos outros inimigos: só causa dano se player não estiver invencível
         if player.invincible_timer == 0:
-            player.take_damage(
-                self.damage,
-                self.x,
-                self.y,
-                self.knockback
-            )
+            player.take_damage(self.damage, self.x, self.y, self.knockback)
 
-    # opcional: reinicia boss (útil para testes)
     def reset(self):
         self.hp = self.max_hp
         self.vx = 0
@@ -1234,7 +1334,6 @@ class BossFinal(Enemy):
         self.shoot_timer = 0
         self.active = True
 
-    # opcional: comportamento ao morrer (se quiser algo além de kill)
     def take_damage(self, amount, source=None):
         super().take_damage(amount, source)
         # se quiser algo na morte, trate aqui (spawn de itens, animação, etc.)
