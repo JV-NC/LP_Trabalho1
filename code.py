@@ -1758,21 +1758,21 @@ def init_game():
 
         # ---------- ROOM 4 ----------
         Spawner(92*8,  28*8, lambda x,y: Patrol(x,y,8,8,348, patrol_range=80), 180, 3, lambda p: p.door_keys == 4),
-        Spawner(108*8, 28*8, lambda x,y: Patrol(x,y,8,8,348, patrol_range=80), 180, 3, lambda p: p.door_keys == 4),
-        Spawner(94*8,  18*8, lambda x,y: Stalker(x,y,16,32,320, speed=0.4), 180, 3, lambda p: p.door_keys == 4),
+        #Spawner(108*8, 28*8, lambda x,y: Patrol(x,y,8,8,348, patrol_range=80), 180, 3, lambda p: p.door_keys == 4),
+        #Spawner(94*8,  18*8, lambda x,y: Stalker(x,y,16,32,320, speed=0.4), 180, 3, lambda p: p.door_keys == 4),
         Spawner(104*8, 20*8, lambda x,y: Stalker(x,y,16,32,324, speed=0.4), 180, 3, lambda p: p.door_keys == 4),
 
         # ---------- ROOM 5 ----------
         Spawner(62*8, 18*8, lambda x,y: FlyingStalker(x,y,16, 16, 328, speed=0.8, frame_max=2, anim_speed=12), 180, 2, lambda p: p.door_keys == 5),
         Spawner(66*8, 18*8, lambda x,y: FlyingStalker(x,y,16, 16, 360, speed=0.8, frame_max=2, anim_speed=12), 180, 2, lambda p: p.door_keys == 5),
-        Spawner(70*8, 18*8, lambda x,y: FlyingStalker(x,y,8, 8, 380, speed=0.8, frame_max=2, anim_speed=12), 180, 2, lambda p: p.door_keys == 5),
-        Spawner(74*8, 18*8, lambda x,y: FlyingStalker(x,y,8, 8, 380, speed=0.8, frame_max=2, anim_speed=12), 180, 2, lambda p: p.door_keys == 5),
+        #Spawner(70*8, 18*8, lambda x,y: FlyingStalker(x,y,8, 8, 380, speed=0.8, frame_max=2, anim_speed=12), 180, 2, lambda p: p.door_keys == 5),
+        #Spawner(74*8, 18*8, lambda x,y: FlyingStalker(x,y,8, 8, 380, speed=0.8, frame_max=2, anim_speed=12), 180, 2, lambda p: p.door_keys == 5),
 
         # ---------- ROOM 6 ----------
-        Spawner(34*8, 18*8, lambda x,y: Stalker(x,y,8,8,364, speed=0.4), 180, 3, lambda p: p.door_keys == 6),
-        Spawner(56*8, 20*8, lambda x,y: Stalker(x,y,8,8,364, speed=0.4), 180, 3, lambda p: p.door_keys == 6),
-        Spawner(38*8, 24*8, lambda x,y: FlyingStalker(x,y,8, 8, 380, speed=0.8, frame_max=2, anim_speed=12), 180, 2, lambda p: p.door_keys == 6),
-        Spawner(46*8, 22*8, lambda x,y: FlyingStalker(x,y,8, 8, 380, speed=0.8, frame_max=2, anim_speed=12), 180, 2, lambda p: p.door_keys == 6),
+        Spawner(34*8, 18*8, lambda x,y: Stalker(x,y,16,32,324, speed=0.4), 180, 3, lambda p: p.door_keys == 6),
+        #Spawner(56*8, 20*8, lambda x,y: Stalker(x,y,8,8,364, speed=0.4), 180, 3, lambda p: p.door_keys == 6),
+        #Spawner(38*8, 24*8, lambda x,y: FlyingStalker(x,y,16, 16, 360, speed=0.8, frame_max=2, anim_speed=12), 180, 2, lambda p: p.door_keys == 6),
+        Spawner(46*8, 22*8, lambda x,y: FlyingStalker(x,y,16, 16, 328, speed=0.8, frame_max=2, anim_speed=12), 180, 2, lambda p: p.door_keys == 6),
 
         # ---------- ROOM 7 (BOSS FINAL) ----------
         Spawner(0*8, 25*8, lambda x,y: BossFinal(x,y), 180, 1, lambda p: p.door_keys == 7)
