@@ -773,6 +773,13 @@ def door_trigger(player, interactable):
     interactable.solid = False
     interactable.sprite = door_opened_sprite
 
+def door_heal_trigger(player, interactable):
+    player.door_keys+=1
+    player.hp = player.max_hp
+    door_opened_sprite = 192
+    interactable.solid = False
+    interactable.sprite = door_opened_sprite
+
 def boss_door_trigger(player, interactable):
     door_opened_sprite = 192
     interactable.solid = False
@@ -1781,10 +1788,10 @@ def init_game():
         Interactable(29*8, 11*8, 16, 32, door_closed_sprite, door_trigger, door_req(0)),
         Interactable(59*8, 11*8, 16, 32, door_closed_sprite, door_trigger, door_req(1)),
         Interactable(89*8, 11*8, 16, 32, door_closed_sprite, door_trigger, door_req(2)),
-        Interactable(119*8, 11*8, 16, 32, door_closed_sprite, door_trigger, door_req(3)),
+        Interactable(119*8, 11*8, 16, 32, door_closed_sprite, door_heal_trigger, door_req(3)),
         Interactable(89*8, 28*8, 16, 32, door_closed_sprite, door_trigger, door_req(4)),
         Interactable(59*8, 28*8, 16, 32, door_closed_sprite, door_trigger, door_req(5)),
-        Interactable(29*8, 28*8, 16, 32, door_closed_sprite, door_trigger, door_req(6)),
+        Interactable(29*8, 28*8, 16, 32, door_closed_sprite, door_heal_trigger, door_req(6)),
 
         Interactable(20*8, 13*8, 16, 16, chest_closed_sprite, dj_chest_trigger, chest_req(1)),
         Interactable(109*8, 8*8, 16, 16, chest_closed_sprite, shoot_chest_trigger, chest_req(2)),
