@@ -367,19 +367,79 @@ class Player:
         return True
         
     #CHECK ENEMIES PROJECTILES
+    def check_player_projectile(self, player: Player, projectiles: list[Projectile]):
+        for proj in list(projectiles):
+
+            # ============================
+            # 1) PROJÉTIL DO PLAYER → acerta INIMIGO
+            # ============================
+            if proj.owner == "player":
+                if (
+                    self.x < proj.x + proj.w and self.x + self.w > proj.x and self.y < proj.y + proj.h and self.y + self.h > proj.y
+                ):
+                    if self.invincible_timer > 0:
+                        continue
+
+                    # dano no inimigo
+                    self.take_damage(proj.damage, source=player)
+
+                    # stun + invencibilidade
+                    self.stun_timer = self.stun_duration
+                    self.invincible_timer = self.invincible_duration
+
+                    # RECOIL correto
+                    recoil(
+                        self, proj.x, proj.y, side_force=self.side_force, up_force=-3
+                    )
+
+                    if proj in projectiles:
+                        projectiles.remove(proj)
+                    continue
+
+            # ============================
+            # 2) PROJÉTIL DO BOSS → acerta PLAYER
+            # ============================
+            if proj.owner == "boss":
+                if (
+                    player.x < proj.x + proj.w and player.x + player.w > proj.x and player.y < proj.y + proj.h and player.y + player.h > proj.y
+                ):
+
+                    if proj in projectiles:
+                        projectiles.remove(proj)
+
+                    player.take_damage(
+                        proj.damage,
+                        self.x,
+                        self.y,
+                        self.knockback
+                    )
+                    continue
+
+
     def check_hit_by_projectiles(self, projectiles):
-        if self.invincible_timer > 0:
-            return
+        for proj in list(projectiles):
 
-        for proj in projectiles:
-            if proj.owner == 'enemy':
-                # AABB collision
-                if (self.x < proj.x + proj.w and self.x + self.w > proj.x and self.y < proj.y + proj.h and self.y + self.h > proj.y):
-                    # apply player damage
-                    self.take_damage(proj.damage,proj.x, proj.y,knockback=3)
+            # só projétil do boss bate no player
+            if proj.owner != "boss":
+                continue
 
-                    # kill projectile
-                    proj.start_x -= proj.max_dist * 2  # força dead() = True
+            # colisão AABB
+            if (
+                self.x < proj.x + proj.w and self.x + self.w > proj.x and self.y < proj.y + proj.h and self.y + self.h > proj.y
+            ):
+                # remove o projétil
+                if proj in projectiles:
+                    projectiles.remove(proj)
+
+                # aplica dano no player
+                self.take_damage(
+                    proj.damage,
+                    proj.x,
+                    proj.y,
+                    knockback=6  # ou o valor que usa no seu jogo
+                )
+                return   # só 1 hit por frame para evitar bug
+
 
     # INTERACT
     def try_interact(self,interactibles):
@@ -834,25 +894,55 @@ class Enemy:
             elif player.attack_dir=='down':
                 recoil(player,self.x,self.y,side_force=0,up_force=-6)
 
-    def check_player_projectile(self, player: Player, projectiles : list[Projectile]):
+    def check_player_projectile(self, player: Player, projectiles: list[Projectile]):
         for proj in list(projectiles):
-            if proj.owner != 'player':
-                continue
-            
-            #check colision
-            if self.x < proj.x + proj.w and self.x + self.w > proj.x and self.y < proj.y + proj.h and self.y + self.h > proj.y:
-                if self.invincible_timer > 0:
+
+            # ============================
+            # 1) PROJÉTIL DO PLAYER → acerta INIMIGO
+            # ============================
+            if proj.owner == "player":
+                if ( self.x < proj.x + proj.w and self.x + self.w > proj.x and self.y < proj.y + proj.h and self.y + self.h > proj.y):
+                    if self.invincible_timer > 0:
+                        continue
+
+                    # dano no inimigo
+                    self.take_damage(proj.damage, source=player)
+
+                    # stun + invencibilidade
+                    self.stun_timer = self.stun_duration
+                    self.invincible_timer = self.invincible_duration
+
+                    # RECOIL correto
+                    recoil(
+                        self,
+                        proj.x,
+                        proj.y,
+                        side_force=self.side_force,
+                        up_force=-3
+                    )
+
+                    if proj in projectiles:
+                        projectiles.remove(proj)
                     continue
 
-                #hit projectile
-                self.take_damage(proj.damage, source=player)
-                self.stun_timer = self.stun_duration
-                self.invincible_timer = self.invincible_duration
+            # ============================
+            # 2) PROJÉTIL DO BOSS → acerta PLAYER
+            # ============================
+            if proj.owner == "boss":
+                if (player.x < proj.x + proj.w and player.x + player.w > proj.x and player.y < proj.y + proj.h and player.y + player.h > proj.y):
 
-                recoil(self, proj.x, proj.y, side_force=self.side_force, up_force=-3)
+                    if proj in projectiles:
+                        projectiles.remove(proj)
 
-                if proj in projectiles:
-                    projectiles.remove(proj)
+                    player.take_damage(
+                        proj.damage,
+                        self.x,
+                        self.y,
+                        self.knockback
+                    )
+                    continue
+
+
 
     def is_dead(self):
         return self.hp<=0
