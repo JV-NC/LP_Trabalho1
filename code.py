@@ -76,7 +76,7 @@ class Player:
         self.on_ground = False
 
         #double jump
-        self.double_jump_unlocked = True
+        self.double_jump_unlocked = False
         self.djump_force = -3
         self.djump_boost = -0.4
         self.max_djump_time = 12
@@ -132,7 +132,7 @@ class Player:
         self.attack_dir = 'side'
 
         #projectile
-        self.shoot_unlocked = True
+        self.shoot_unlocked = False
         self.shoot_timer = 0
         self.shoot_duration = 12
         self.shoot_sprite = 302
@@ -773,6 +773,11 @@ def door_trigger(player, interactable):
     interactable.solid = False
     interactable.sprite = door_opened_sprite
 
+def boss_door_trigger(player, interactable):
+    door_opened_sprite = 192
+    interactable.solid = False
+    interactable.sprite = door_opened_sprite
+
 def door_req(num):
     return lambda player: getattr(player, 'door_keys')>=num
 
@@ -781,6 +786,20 @@ def chest_trigger(player,interactable):
     player.door_keys+=1
     interactable.solid = False
     interactable.sprite = chest_opened_sprite
+
+def dj_chest_trigger(player,interactable):
+    chest_opened_sprite = 236
+    player.chest_keys+=1
+    interactable.solid = False
+    interactable.sprite = chest_opened_sprite
+    player.double_jump_unlocked = True
+
+def shoot_chest_trigger(player, interactable):
+    chest_opened_sprite = 236
+    player.chest_keys+=1
+    interactable.solid = False
+    interactable.sprite = chest_opened_sprite
+    player.shoot_unlocked = True
 
 def chest_req(num):
     return lambda player: getattr(player,'chest_keys')>=num
@@ -1562,6 +1581,9 @@ def init_game():
         Interactable(89*8, 28*8, 16, 32, door_closed_sprite, door_trigger, door_req(4)),
         Interactable(59*8, 28*8, 16, 32, door_closed_sprite, door_trigger, door_req(5)),
         Interactable(29*8, 28*8, 16, 32, door_closed_sprite, door_trigger, door_req(6)),
+
+        Interactable(20*8, 13*8, 16, 16, chest_closed_sprite, dj_chest_trigger, chest_req(1)),
+        Interactable(109*8, 8*8, 16, 16, chest_closed_sprite, shoot_chest_trigger, chest_req(2))
     ]
         #Interactable(119*8, 28*8, 16, 32, door_closed_sprite, door_trigger, door_req(4)),
         #Interactable(7*8, 13*8, 16, 32, chest_closed_sprite, chest_trigger, chest_req(1))
