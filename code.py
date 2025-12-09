@@ -1584,6 +1584,52 @@ def draw_game_win():
     print(msg, msg_x, msg_y, WHITE, False, msg_scale)
 
 
+def draw_item_screen(item_name, sprite_id):
+    """
+    item_name: nome do item/upgrade (string)
+    sprite_id: id do sprite do item no mapa/spritesheet
+    """
+    global menu_t
+    menu_t += 1
+    cls()
+
+    bg_tile = 176
+    tile_w = 1
+    tile_h = 1
+    WHITE = 12
+    YELLOW = 5
+
+    # fundo
+    for ty in range(0, H, tile_h):
+        for tx in range(0, W, tile_w):
+            spr(bg_tile, tx, ty, colorkey=0, w=tile_w, h=tile_h)
+
+    # título
+    title = "UPGRADE ACQUIRED!"
+    title_scale = 2
+    title_x = center_x(title, title_scale)
+    title_y = 20
+    print(title, title_x, title_y, YELLOW, False, title_scale)
+
+    # sprite do item no centro
+    px = W//2 - 16
+    py = 50
+    spr(sprite_id, px, py, colorkey=0, scale=2, w=3, h=3)
+
+    # nome do item
+    name_x = center_x(item_name, 1)
+    name_y = py + 16*2 + 8
+    print(item_name, name_x, name_y, WHITE, False, 1)
+
+    # mensagem para continuar
+    msg = "PRESS 'E' TO CONTINUE"
+    msg_x = center_x(msg, 1)
+    msg_y = H - 24
+
+    if (menu_t // 20) % 2 == 0:  # blink
+        print(msg, msg_x, msg_y, WHITE, False, 1)
+
+
 
 #GLOBALS
 
@@ -1628,7 +1674,7 @@ def init_game():
         # FlyingStalker(150, 50, 8, 8, 380, speed=0.8, frame_max=2, anim_speed=12),
         
         # BOSS FINAL (32x64)
-        BossFinal(400, 50)
+        # BossFinal(400, 50)
 
     ]
 
@@ -1717,6 +1763,19 @@ def TIC():
     if not music_started:
         music(0, loop=True)
         music_started = True
+        
+        
+    # TESTE: apertar X para mostrar item
+    if btnp(6):  # X
+        GAME_STATE = "item"
+        show_item_test = True
+
+    if GAME_STATE == "item":
+        draw_item_screen("SPEED UPGRADE", 429)  # sprite de exemplo
+        if btnp(7) or key(5):  # E para voltar
+            GAME_STATE = "game"
+            show_item_test = False
+        return
 
     if GAME_STATE == "menu":
         draw_menu(player)
