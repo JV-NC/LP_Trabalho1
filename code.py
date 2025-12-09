@@ -1434,10 +1434,14 @@ def draw_game_over():
     print(title, title_x, title_y, WHITE, False, title_scale)
 
     #DEAD SPRITE
-    sprite_id = 308
+    std_sprite_id = 308
+    max_frames = 2
+    speed = 30
     scale = 3
     w = 2 * 8 * scale   # largura real
     h = 1 * 8 * scale   # altura real
+    frame = (menu_t//speed)%max_frames
+    sprite_id = std_sprite_id + frame * 2
 
     px = int(240/2 - w/2)
     py = 60
