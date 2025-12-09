@@ -793,6 +793,9 @@ def dj_chest_trigger(player,interactable):
     interactable.solid = False
     interactable.sprite = chest_opened_sprite
     player.double_jump_unlocked = True
+    global GAME_STATE, select_upgrade
+    GAME_STATE = 'item'
+    select_upgrade = 'DOUBLE JUMP'
 
 def shoot_chest_trigger(player, interactable):
     chest_opened_sprite = 236
@@ -800,6 +803,19 @@ def shoot_chest_trigger(player, interactable):
     interactable.solid = False
     interactable.sprite = chest_opened_sprite
     player.shoot_unlocked = True
+    global GAME_STATE, select_upgrade
+    GAME_STATE = 'item'
+    select_upgrade = 'PRESS "Q" TO SHOOT'
+
+def shoot_damage_chest_trigger(player, interactable):
+    chest_opened_sprite = 236
+    player.chest_keys+=1
+    interactable.solid = False
+    interactable.sprite = chest_opened_sprite
+    player.projectile_damage+=1
+    global GAME_STATE, select_upgrade
+    GAME_STATE = 'item'
+    select_upgrade = 'SHOOT DAMAGE INCREASED'
 
 def chest_req(num):
     return lambda player: getattr(player,'chest_keys')>=num
@@ -1650,7 +1666,7 @@ def draw_item_screen(item_name, sprite_id):
     print(item_name, name_x, name_y, WHITE, False, 1)
 
     # mensagem para continuar
-    msg = "PRESS 'E' TO CONTINUE"
+    msg = "PRESS 'SPACE' TO CONTINUE"
     msg_x = center_x(msg, 1)
     msg_y = H - 24
 
@@ -1684,6 +1700,7 @@ projectiles = []
 interactables = []
 
 GAME_STATE = "menu"
+select_upgrade = 'DOUBLE JUMP'
 death_timer = 0
 
 music_started = False
@@ -1759,7 +1776,8 @@ def init_game():
         Interactable(29*8, 28*8, 16, 32, door_closed_sprite, door_trigger, door_req(6)),
 
         Interactable(20*8, 13*8, 16, 16, chest_closed_sprite, dj_chest_trigger, chest_req(1)),
-        Interactable(109*8, 8*8, 16, 16, chest_closed_sprite, shoot_chest_trigger, chest_req(2))
+        Interactable(109*8, 8*8, 16, 16, chest_closed_sprite, shoot_chest_trigger, chest_req(2)),
+        Interactable(57*8, 21*8, 16, 16, chest_closed_sprite, shoot_damage_chest_trigger, chest_req(3))
     ]
         #Interactable(119*8, 28*8, 16, 32, door_closed_sprite, door_trigger, door_req(4)),
         #Interactable(7*8, 13*8, 16, 32, chest_closed_sprite, chest_trigger, chest_req(1))
@@ -1785,22 +1803,16 @@ def draw_HUD(player):
             spr(293, px, y,colorkey=0)   # empty heart
 
 def TIC():
-    global player, GAME_STATE, death_timer, music_started, interactables, projectiles
+    global player, GAME_STATE, death_timer, music_started, interactables, projectiles, select_upgrade
 
     #music
     if not music_started:
         music(0, loop=True)
         music_started = True
-        
-        
-    # TESTE: apertar X para mostrar item
-    if btnp(6):  # X
-        GAME_STATE = "item"
-        show_item_test = True
 
     if GAME_STATE == "item":
-        draw_item_screen("SPEED UPGRADE", 461)  # sprite de exemplo
-        if btnp(7) or key(5):  # E para voltar
+        draw_item_screen(select_upgrade, 461)  # sprite de exemplo
+        if btnp(4) or key(48):  # E para voltar
             GAME_STATE = "game"
             show_item_test = False
         return
