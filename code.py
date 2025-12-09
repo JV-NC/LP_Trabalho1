@@ -843,6 +843,7 @@ class Enemy:
         self.anim_speed = anim_speed
         self.t = 0
         self.facing = 0 # 0 right / 1 left
+        self.anim_timer = 0
 
         #physics
         self.vx = 0
@@ -1051,6 +1052,8 @@ class Enemy:
         return False
     
     def update(self, cam_x, cam_y, player):
+        self.anim_timer += 1
+
         if self.invincible_timer > 0:
             self.invincible_timer -= 1
             self.flipper_t += 1
@@ -1076,6 +1079,56 @@ class Enemy:
             self.on_player_collision(player)
         
         self.check_player_attack(player)
+
+class Patrol(Enemy):
+    def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15, max_hp=3, damage=1, speed=1, knockback=4, patrol_range=80):
+        super().__init__(x, y, w, h, sprite_base, frame_max, anim_speed, max_hp, damage, speed, knockback)
+        self.dir = 1 if patrol_range>=0 else -1
+        self.start_x = x
+        self.patrol_range = abs(patrol_range)
+
+    def move_behavior(self, player: Player):
+        self.facing = 0 if self.dir > 0 else 1
+        old_x = self.x
+
+        # calculate distance from start
+        dist_from_start = self.x - self.start_x
+
+        # reverse if surpass patrol_range
+        if dist_from_start >= self.patrol_range and self.dir > 0:
+            self.dir = -1
+        elif dist_from_start <= self.patrol_range * -1 and self.dir < 0:
+            self.dir = 1
+
+        # define velocity
+        self.vx = self.dir * self.speed
+
+        # verify floor ahead
+        front_x = self.x + (self.dir > 0) * self.w
+        front_y = self.y + self.h
+        if not solid_tile_at(front_x, front_y + 1):
+            self.dir *= -1
+            self.vx = self.dir * self.speed
+
+        # move enemy
+        self.x += self.vx
+
+        # side collisions
+        left = int(self.x)
+        right = int(self.x + self.w - 1)
+        top = int(self.y)
+        bottom = int(self.y + self.h - 1)
+
+        if self.vx > 0 and (solid_tile_at(right, top) or solid_tile_at(right, bottom)):
+            self.x = old_x
+            self.dir = -1
+        elif self.vx < 0 and (solid_tile_at(left, top) or solid_tile_at(left, bottom)):
+            self.x = old_x
+            self.dir = 1
+
+    def on_player_collision(self, player):
+        if player.invincible_timer==0:
+            player.take_damage(self.damage,self.x,self.y,self.knockback)
 
 class Patrol(Enemy):
     def __init__(self, x, y, w, h, sprite_base, frame_max=2, anim_speed=15, max_hp=3, damage=1, speed=1, knockback=4, patrol_range=80):
@@ -1244,9 +1297,9 @@ class BossFinal(Enemy):
     def __init__(self, x, y):
         super().__init__(
             x, y,
-            32, 64,
-            384,
-            frame_max=1,
+            32, 64,          # tamanho
+            384,             # <-- sprite_base (coloque AQUI o primeiro sprite do boss)
+            frame_max=2,     # AGORA TEM 4 FRAMES
             anim_speed=10,
             max_hp=40,
             damage=2,
@@ -1254,6 +1307,7 @@ class BossFinal(Enemy):
             knockback=6
         )
 
+        # tiro
         self.shoot_timer = 0
         self.shoot_delay = 90
         self.projectile_sprite = 303
@@ -1266,22 +1320,22 @@ class BossFinal(Enemy):
             self.vx = 0
             return
 
+        # movimento horizontal simples
         if player.x > self.x:
             self.vx = self.speed
             self.facing = 0
-        elif player.x < self.x:
+        else:
             self.vx = -self.speed
             self.facing = 1
-        else:
-            self.vx = 0
 
-        if self.vx > self.speed:
-            self.vx = self.speed
-        if self.vx < -self.speed:
-            self.vx = -self.speed
-
-        # garante que o inimigo se mova; move_friction também será chamado por Enemy.update()
+        # chama atrito/mov
         self.move_friction()
+
+        # avanço da animação
+        self.anim_timer += 1
+        if self.anim_timer >= self.anim_speed:
+            self.anim_timer = 0
+            self.frame = (self.frame + 1) % self.frame_max
 
         # tiro
         self.shoot_timer += 1
@@ -1298,18 +1352,15 @@ class BossFinal(Enemy):
 
         dx = player.x - spawn_x
         dy = player.y - spawn_y
-        dist = (dx*dx + dy*dy) ** 0.5
-        if dist == 0: dist = 1
+        dist = max(1, (dx*dx + dy*dy) ** 0.5)
 
         speed = self.projectile_speed
         vx = (dx / dist) * speed
         vy = (dy / dist) * speed
 
-        # cria projétil com vx/vy — seguirá em linha reta na direção do player
         projectiles.append(
             Projectile(
-                spawn_x,
-                spawn_y,
+                spawn_x, spawn_y,
                 0,
                 self.projectile_sprite,
                 speed=speed,
@@ -1333,10 +1384,6 @@ class BossFinal(Enemy):
         self.vy = 0
         self.shoot_timer = 0
         self.active = True
-
-    def take_damage(self, amount, source=None):
-        super().take_damage(amount, source)
-        # se quiser algo na morte, trate aqui (spawn de itens, animação, etc.)
 
 # ---------- MAPA ----------
 
